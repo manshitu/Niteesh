@@ -1,0 +1,18 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "sp-descrepency-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/spDescrepency/SpDescrepencyWebPart.js",
+          "manifest": "./src/webparts/spDescrepency/SpDescrepencyWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "SpDescrepencyWebPartStrings": "lib/webparts/spDescrepency/loc/{locale}.js"
+  }
+}

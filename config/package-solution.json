@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "sp-descrepency-client-side-solution",
+    "id": "e792fb83-c9cb-461f-9f8f-b6c833df71af",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.20.0"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "SPDescrepency description"
+      },
+      "longDescription": {
+        "default": "SPDescrepency description"
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "sp-descrepency Feature",
+        "description": "The feature that activates elements of the sp-descrepency solution.",
+        "id": "c69732a1-8135-42cd-ac25-7b5da1b370e4",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/sp-descrepency.sppkg"
+  }
+}
