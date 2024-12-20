@@ -1,34 +1,119 @@
-@import '~@fluentui/react/dist/sass/References.scss';
+@import "~@fluentui/react/dist/sass/References.scss";
 
 .spDescrepency {
-  overflow: hidden;
-  padding: 1em;
-  color: "[theme:bodyText, default: #323130]";
-  color: var(--bodyText);
-  &.teams {
-    font-family: $ms-font-family-fallbacks;
-  }
+  font-family: Arial, sans-serif;
+  color: #333;
+  /* padding: 20px;*/
+  background-color: #f9f9f9;
 }
 
-.welcome {
+.header {
   text-align: center;
+  padding: 15px;
+  background-color: #0078d4;
+  color: white;
+}
+
+.headerTitle {
+  font-size: 1.5em;
+  margin: 0;
+}
+
+.headerSubtitle {
+  font-size: 1em;
+  margin: 5px 0 0;
+}
+
+.welcomeSection {
+  text-align: center;
+  margin: 20px 0;
 }
 
 .welcomeImage {
-  width: 100%;
-  max-width: 420px;
+  width: 100px;
+  height: auto;
+  margin-bottom: 10px;
 }
 
-.links {
-  a {
-    text-decoration: none;
-    color: "[theme:link, default:#03787c]";
-    color: var(--link); // note: CSS Custom Properties support is limited to modern browsers only
+.welcomeMessage {
+  font-size: 1.5em;
+}
 
-    &:hover {
-      text-decoration: underline;
-      color: "[theme:linkHovered, default: #014446]";
-      color: var(--linkHovered); // note: CSS Custom Properties support is limited to modern browsers only
-    }
-  }
+.environmentMessage,
+.webPartInfo {
+  font-size: 1em;
+  margin-top: 10px;
+}
+
+.mainContent {
+  /*margin: 20px 0;*/
+  min-height: 250px;
+  max-height: 500px;
+  padding-left: 10px;
+}
+
+.sectionTitle {
+  font-size: 1.25em;
+  margin-bottom: 10px;
+}
+
+.sectionDescription {
+  margin-bottom: 20px;
+}
+
+.uploadSection {
+  margin-bottom: 30px;
+}
+
+.fileInput {
+  margin-top: 10px;
+}
+
+.uploadButton {
+  background-color: #0078d4;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+.uploadButton:hover {
+  background-color: #005a9e;
+}
+
+.dashboardSection {
+  padding: 20px;
+  background-color: #eaeaea;
+  border-radius: 5px;
+}
+
+.dashboardItems {
+  list-style-type: none;
+  padding: 0;
+}
+
+.dashboardItems li {
+  margin: 5px 0;
+}
+
+.footer {
+  text-align: center;
+  padding: 1px;
+  background-color: #f1f1f1;
+  font-size: 0.9em;
+}
+
+.teams {
+  background-color: #f3f2f1; /* A light Teams-style background */
+  padding: 20px;
+  border: 2px solid #0078d4; /* Teams theme primary color */
+  border-radius: 5px;
+}
+
+.teams h2 {
+  color: #0078d4; /* Teams theme primary color */
+}
+
+.teams p {
+  color: #333;
 }

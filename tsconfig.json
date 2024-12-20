@@ -1,9 +1,9 @@
 {
   "extends": "./node_modules/@microsoft/rush-stack-compiler-4.7/includes/tsconfig-web.json",
   "compilerOptions": {
-    "target": "es5",
+    "target": "ES6",
     "forceConsistentCasingInFileNames": true,
-    "module": "esnext",
+    "module": "ESNext",
     "moduleResolution": "node",
     "jsx": "react",
     "declaration": true,
@@ -13,6 +13,8 @@
     "outDir": "lib",
     "inlineSources": false,
     "noImplicitAny": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
 
     "typeRoots": [
       "./node_modules/@types",
@@ -23,7 +25,9 @@
     ],
     "lib": [
       "es5",
+      "es6",
       "dom",
+      "dom.iterable",
       "es2015.collection",
       "es2015.promise"
     ]

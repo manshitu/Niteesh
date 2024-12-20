@@ -13,6 +13,7 @@
   },
   "externals": {},
   "localizedResources": {
-    "SpDescrepencyWebPartStrings": "lib/webparts/spDescrepency/loc/{locale}.js"
+    "SpDescrepencyWebPartStrings": "lib/webparts/spDescrepency/loc/{locale}.js",
+    "ControlStrings": "node_modules/@pnp/spfx-controls-react/lib/loc/{locale}.js"
   }
 }
