@@ -84,21 +84,6 @@ export default class SpDescrepency extends React.Component<
     });
   }
 
-  private resetUI = (): void => {
-    console.log("Resetting UI...");
-    this.setState({
-      selectedAgency: "",
-      //uploadStatus: "",
-      errorMessage: "",
-    });
-    const fileInput = document.querySelector(
-      `.${styles.fileInput}`
-    ) as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = "";
-    }
-  };
-
   private handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -152,12 +137,6 @@ export default class SpDescrepency extends React.Component<
         console.warn("Invalid rows:", invalidRows);
       }
 
-      // Upload the file to the SharePoint library
-      await this.uploadFileToLibrary(selectedFile);
-
-      // Save the valid data to the SharePoint list
-      await this.saveDataToList(validRows);
-
       this.setState({
         style: styles.successMessage,
         uploadStatus: `File uploaded successfully! ${validRows.length} rows saved. ${invalidRows.length} rows skipped due to validation errors.`,
@@ -170,7 +149,7 @@ export default class SpDescrepency extends React.Component<
       this.displayDiscrepancyReport([discrepancyResult]);
 
       // Reset the UI
-      this.resetUI();
+      //this.resetUI();
     } catch (error) {
       console.error("Error during file upload:", error);
       this.setState({
@@ -251,27 +230,7 @@ export default class SpDescrepency extends React.Component<
         FirstName: item.field_6, //EmployeeLastName
         LastName: item.field_7, //EmployeeFirstName  
         MiddleName: item.field_28,
-        FIPS: item.field_4, 
-        EmployeeStatus: item.field_8,
-        EmployeePositionBeginDate: item.field_9, 
-        EmployeeSalary: item.field_10,
-        AssigPercentageTimeToPosition: item.field_11, 
-        StatePositionNumber: item.field_12,
-        LocalPositionNumber: item.field_13, 
-        OTD: item.field_15,
-        OTDCode: item.field_14, 
-        DeviationCode: item.field_16,
-        PositionDuration: item.field_17, 
-        PositionTimeStatus: item.field_18,
-        PositionStatus: item.field_19,
-        PositionCLStartDate: item.field_20, 
-        EffectiveDateFrom: item.field_21,
-        ExpectedPositionEndDate: item.field_22,
-        PositionEndDate: item.field_23, 
-        ReimbursementStatusCode: item.field_24, 
-        RatingDate: item.field_25,
-        EmployeeExpectedJobEndDate: item.field_26,
-        ProbationExpectedEndDate: item.field_27,         
+        FIPS: item.field_4
       }));
     } catch (error) {
       console.error("Error fetching list data: ", error);
@@ -488,55 +447,7 @@ export default class SpDescrepency extends React.Component<
                     <tr>
                       <td><a href="#">Filled LETS positions</a></td>
                       <td>{report.FilledLetsPositions}</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#">Employees in LETS not found local file</a></td>
-                      <td>NA</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#">Vacant positions in LETS that may be improperly vacant (i.e. there is an equivalent filled position in local data)</a></td>
-                      <td>NA</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#"># of local positions (filled and vacant)</a></td>
-                      <td>NA</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#"># of filled local positions</a></td>
-                      <td>NA</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#"># of employees in local not found in LETS data</a></td>
-                      <td>NA</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#"># of employees with significant (&gt; $1.00) salary variances between LETS and local data</a></td>
-                      <td>NA</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#"># of local positions that are also in LETS with different state titles</a></td>
-                      <td>NA</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#">LETS local position is blank</a></td>
-                      <td>NA</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#"># of Employees with Past Due Probation Ending Date</a></td>
-                      <td>NA</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#"># of Employees with Past Due Annual Evaluation Date</a></td>
-                      <td>NA</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#"># of Employees in Expired Positions</a></td>
-                      <td>NA</td>
-                    </tr>
-                    <tr>
-                      <td><a href="#"># of Positions with Invalid RSC values</a></td>
-                      <td>NA</td>
-                    </tr>
+                    </tr>                    
                   </>
                 ))}
               </tbody>
@@ -562,63 +473,6 @@ export default class SpDescrepency extends React.Component<
     });
     return { validRows, invalidRows };
   }
-
-  private uploadFileToLibrary = async (file: File): Promise<void> => {
-    const libraryRelativePath = "/devlab/DocQ"; // Replace with your library path
-    const folder = sp.web.getFolderByServerRelativeUrl(libraryRelativePath);
-
-    try {
-      // Upload the file
-      const uploadResponse = await folder.files.add(file.name, file, true);
-
-      // Set metadata for the uploaded file
-      await uploadResponse.file.getItem().then(async (item) => {
-        await item.update({
-          Agency: this.state.selectedAgency || "Unknown",
-        });
-      });
-
-      console.log(
-        `File "${file.name}" uploaded successfully to "${libraryRelativePath}" with agency metadata.`
-      );
-    } catch (error) {
-      if (error?.message?.includes("404")) {
-        throw new Error(
-          `Library not found at path: "${libraryRelativePath}". Please verify the library name and location.`
-        );
-      } else {
-        throw error;
-      }
-    }
-  };
-
-  private saveDataToList = async (data: IExcelRow[]): Promise<void> => {
-    const listName = "PRS_User_Data"; // Replace with your list name
-    const list = sp.web.lists.getByTitle(listName);
-
-    try {
-      for (const item of data) {
-        await list.items.add({
-          Agency: this.state.selectedAgency || "",
-          Title: String(item.BureauFIPS) || "",
-          field_1: String(item.PayrollPositionNumber) || "", //PayrollPositionNumber
-          field_2: item.JobTitle || "", //JobTitle
-          field_3: item.StateJobTitle || "", //StateJobTitle
-          field_4: item.EmployeeLastName || "", //EmployeeLastName
-          field_5: item.EmployeeFirstName || "", //EmployeeFirstName
-          field_6: item.EmployeeMiddleInitial || "", //EmployeeMiddleInitial
-          field_7: String(item.Salary) || "", //Salary
-          field_8: String(item.FTE) || "", //FTE
-          field_9: String(item.ReimbursementPercentage) || "", //ReimbursementPercentage
-        });
-      }
-      console.log(
-        `Successfully added ${data.length} items to the "${listName}" list.`
-      );
-    } catch (error) {
-      throw new Error(`Failed to save data to list "${listName}". ${error}`);
-    }
-  };
 
   public render(): React.ReactElement<ISpDescrepencyProps> {
     const { hasTeamsContext } = this.props;
