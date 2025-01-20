@@ -11,6 +11,8 @@ import { IReadonlyTheme } from '@microsoft/sp-component-base';
 import * as strings from 'SpDescrepencyWebPartStrings';
 import SpDescrepency from './components/SpDescrepency';
 import { ISpDescrepencyProps } from './components/ISpDescrepencyProps';
+import { WebPartContext } from '@microsoft/sp-webpart-base'; // Ensure WebPartContext is imported
+
 
 export interface ISpDescrepencyWebPartProps {
   description: string;
@@ -25,10 +27,11 @@ export default class SpDescrepencyWebPart extends BaseClientSideWebPart<ISpDescr
     const element: React.ReactElement<ISpDescrepencyProps> = React.createElement(
       SpDescrepency,
       {
+        context: this.context as WebPartContext, // Explicitly cast the context
         description: this.properties.description,
         isDarkTheme: this._isDarkTheme,
         environmentMessage: this._environmentMessage,
-        hasTeamsContext: !!this.context.sdks.microsoftTeams,
+        hasTeamsContext: !!this.context.sdks.microsoftTeams,        
         userDisplayName: this.context.pageContext.user.displayName
       }
     );
@@ -41,8 +44,6 @@ export default class SpDescrepencyWebPart extends BaseClientSideWebPart<ISpDescr
       this._environmentMessage = message;
     });
   }
-
-
 
   private _getEnvironmentMessage(): Promise<string> {
     if (!!this.context.sdks.microsoftTeams) { // running in Teams, office.com or Outlook
