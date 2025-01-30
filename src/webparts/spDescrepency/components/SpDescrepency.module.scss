@@ -206,7 +206,8 @@
 }
 
 .gridContainer {
-  max-height: 400px; /* Adjust height as needed */
+  /*max-height: 400px;  Adjust height as needed */
+  height: 100%;
   overflow-y: auto;
   border: 1px solid #ddd;
   padding: 10px;
@@ -272,7 +273,94 @@ th, td {
   font-size: 12px;
 }
 
+/*
 tbody tr:last-child td {
   //border-bottom: none;
 }
+*/
+.tabContainer {
+  display: flex;
+  justify-content: flex-start;
+  border-bottom: 2px solid #ccc;
+  margin-bottom: 5px;
+}
 
+.tab {
+  background-color: #f1f1f1;
+  border: 1px solid #ccc;
+  padding: 10px 20px;
+  margin-right: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+}
+
+.tab:hover {
+  background-color: #e0e0e0;
+}
+
+.activeTab {
+  background-color: #0078d4;
+  color: white;
+  border: 1px solid #0078d4;
+  padding: 10px 20px;
+  margin-right: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.tabContent {
+  height: 225px; /* Fixed height for scroll area */
+  overflow-y: auto; /* Enables vertical scrolling */
+  overflow-x: auto; /* Enables horizontal scrolling */
+  border: 1px solid #ccc;
+  padding: 5px;
+  background-color: #fff;
+  border-radius: 5px;
+  position: relative; /* Ensures child elements respect this container */
+}
+
+/* Ensure the list inside follows the parent's scroll */
+.tabContent > div {
+  max-height: 90%; /* Makes sure child respects tabContent height */
+  overflow: auto; /* Forces scrollbar when needed */
+}
+
+/* Optional: Improve scrollbar appearance */
+.tabContent::-webkit-scrollbar {
+  width: 10px;
+}
+
+.tabContent::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.tabContent::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 5px;
+}
+
+.tabContent::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.reportTable {
+  width: 100%;
+  border-collapse: collapse;
+  /*margin-top: 10px;*/
+}
+
+.reportTable th, .reportTable td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: left;
+}
+
+.reportTable th {
+  background-color: #0078d4;
+  color: white;
+}
+
+.reportTable tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
