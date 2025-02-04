@@ -26,11 +26,14 @@ interface ISpDescrepencyState {
   errorMessage: string;
   selectedAgency: string | undefined;
   masterData: IExcelRow[];
+  validAgencyData: IExcelRow[];
   currentPage: number;
   isPopupVisible: boolean;
   selectedRow: IExcelRow | undefined;
   descrepencyReport: IDiscrepancyResult[];
-  activeTab: "MasterData" | "DiscrepancyReport";
+  activeTab: "MasterData" | "DiscrepancyReport" | "DiscrepancyDetails" | "FormTab";
+  selectedDiscrepancy?: string | undefined; // Stores selected discrepancy for Tab 3
+  filteredDiscrepancyData: IExcelRow[]; // Stores the filtered data for details tab
 }
 
 interface IExcelRow {
@@ -55,6 +58,13 @@ interface IDiscrepancyResult {
   NumberofLocalPositions: number;
   NumberOfVacantLocalPositions: number;
   NumberOfFilledLocalPositions: number;
+  NumberOfEmployeeWithSignificantSalary: number;
+  NumberOfLocalPositionsInLETS: number;
+  LetsLocalPositionBlank: number;
+  NumberOfEmployeeWithPastDueProbation: number;
+  NumberOfEmployeeWithPastDueAnnual: number;
+  NumberOfEmployeeInExpiredPositions: number;
+  NumberOfPositionsWithInvalidRSC: number;
 }
 
 export default class SpDescrepency extends React.Component<
@@ -77,11 +87,14 @@ export default class SpDescrepency extends React.Component<
       errorMessage: "",
       selectedAgency: undefined,
       masterData: [],
+      validAgencyData: [],
       currentPage: 1,
       isPopupVisible: false,
       selectedRow: undefined,
       descrepencyReport: [],
       activeTab: "MasterData",
+      selectedDiscrepancy: undefined,
+      filteredDiscrepancyData: [],
     };
 
     sp.setup({
@@ -195,23 +208,23 @@ export default class SpDescrepency extends React.Component<
     masterData: IExcelRow[]
   ): IDiscrepancyResult => {
     const letsPositions = masterData.length;
-    const vacantLetsPositions = masterData.filter(
-      (master) => master.EmployeeFirstName
-    ).length;
-    const filledLetsPositions = masterData.filter(
-      (master) => !master.EmployeeFirstName
-    ).length;
+    const vacantLetsPositions = masterData.filter((master) => master.EmployeeFirstName).length;
+    const filledLetsPositions = masterData.filter((master) => !master.EmployeeFirstName).length;
 
     const employeeLetsNotFoundLocal = 0; //validRows.filter((agency) => !agency.EmployeeFirstName).length;
     const vacantPositionsLets = 0; //masterData.filter((master) => !master.EmployeeFirstName).length;
 
     const numberofLocalPositions = validRows.length;
-    const numberOfVacantLocalPositions = validRows.filter(
-      (agency) => agency.EmployeeFirstName
-    ).length;
-    const numberOfFilledLocalPositions = validRows.filter(
-      (agency) => !agency.EmployeeFirstName
-    ).length;
+    const numberOfVacantLocalPositions = validRows.filter((agency) => agency.EmployeeFirstName).length;
+    const numberOfFilledLocalPositions = validRows.filter((agency) => !agency.EmployeeFirstName).length;
+
+    const numberOfEmployeeWithSignificantSalary = 0;
+    const numberOfLocalPositionsInLETS = 0;
+    const letsLocalPositionBlank = 0;
+    const numberOfEmployeeWithPastDueProbation = 0;
+    const numberOfEmployeeWithPastDueAnnual = 0;
+    const numberOfEmployeeInExpiredPositions = 0;
+    const numberOfPositionsWithInvalidRSC = 0;
 
     return {
       LetsPositions: letsPositions,
@@ -222,6 +235,13 @@ export default class SpDescrepency extends React.Component<
       NumberofLocalPositions: numberofLocalPositions,
       NumberOfVacantLocalPositions: numberOfVacantLocalPositions,
       NumberOfFilledLocalPositions: numberOfFilledLocalPositions,
+      NumberOfEmployeeWithSignificantSalary: numberOfEmployeeWithSignificantSalary,
+      NumberOfLocalPositionsInLETS: numberOfLocalPositionsInLETS,
+      LetsLocalPositionBlank: letsLocalPositionBlank,
+      NumberOfEmployeeWithPastDueProbation: numberOfEmployeeWithPastDueProbation,
+      NumberOfEmployeeWithPastDueAnnual: numberOfEmployeeWithPastDueAnnual,
+      NumberOfEmployeeInExpiredPositions: numberOfEmployeeInExpiredPositions,
+      NumberOfPositionsWithInvalidRSC: numberOfPositionsWithInvalidRSC,
     };
   };
 
@@ -332,6 +352,158 @@ export default class SpDescrepency extends React.Component<
     );
   }
 
+  private renderSelectedDiscrepancyDetails = (): JSX.Element => {
+    const { selectedDiscrepancy, filteredDiscrepancyData } = this.state;
+  
+    if (!selectedDiscrepancy) {
+      return <p>Please select a discrepancy from the report.</p>;
+    }
+  
+    if (filteredDiscrepancyData.length === 0) {
+      return <p>No records found for selected discrepancy.</p>;
+    }
+  
+    // Define dynamic columns based on the discrepancy type
+    let columns: IColumn[] = [];
+  
+    if (selectedDiscrepancy === "LetsPositions") {
+      columns = [
+        { key: "1", name: "Employee Name", fieldName: "FirstName", minWidth: 100, maxWidth: 150 },
+        { key: "2", name: "Position Number", fieldName: "LocalPositionNumber", minWidth: 100, maxWidth: 150 },
+        { key: "3", name: "Salary", fieldName: "EmployeeSalary", minWidth: 80, maxWidth: 120 },
+      ];
+    } else if (selectedDiscrepancy === "VacantLetsPositions") {
+      columns = [
+        { key: "1", name: "BureauFIPS", fieldName: "BureauFIPS", minWidth: 100, maxWidth: 150 },
+        { key: "2", name: "Job Title", fieldName: "Region", minWidth: 100, maxWidth: 150 },
+      ];
+    } else if (selectedDiscrepancy === "FilledLetsPositions") {
+      columns = [
+        { key: "1", name: "Employee Name", fieldName: "FirstName", minWidth: 100, maxWidth: 150 },
+        { key: "2", name: "Status", fieldName: "EmployeeStatus", minWidth: 100, maxWidth: 150 },
+      ];
+    }
+  
+    return (
+      <div className={styles.tabContent}>
+        <h3>Details for {selectedDiscrepancy}</h3>
+        <DetailsList
+          items={filteredDiscrepancyData}
+          columns={columns}
+          selectionMode={SelectionMode.none}
+          compact={true}
+        />
+      </div>
+    );
+  };    
+  /*
+  private renderApprovalForm = (): JSX.Element => {
+    return (
+      <div className={styles.formContainer}>
+        <h3>Discrepancy Resolution Form</h3>
+        <input type="text" placeholder="Field 1" className={styles.formInput} />
+        <input type="text" placeholder="Field 2" className={styles.formInput} />
+        <input type="text" placeholder="Field 3" className={styles.formInput} />
+        <input type="text" placeholder="Field 4" className={styles.formInput} />
+  
+        <select className={styles.formDropdown}>
+          <option value="">Select Option 1</option>
+          <option value="Option A">Option A</option>
+          <option value="Option B">Option B</option>
+        </select>
+  
+        <select className={styles.formDropdown}>
+          <option value="">Select Option 2</option>
+          <option value="Option X">Option X</option>
+          <option value="Option Y">Option Y</option>
+        </select>
+  
+        <button className={styles.submitButton}>Submit</button>
+      </div>
+    );
+  };
+  */
+
+  private renderApprovalForm = (): JSX.Element => {
+    return (
+      <div className={styles.formContainer}>
+        <div className={styles.formTitle}>Local HR Connect (LHRC) Certification Report</div>
+  
+        {/* Locality Information */}
+        <div className={styles.formGroup}>
+          <label>Locality Name (City or County):</label>
+          <input type="text" className={styles.formInput} placeholder="Enter Locality Name" />
+          <label>FIPS:</label>
+          <input type="text" className={styles.formInputSmall} placeholder="Enter FIPS" />
+          <label>Month:</label>
+          <input type="text" className={styles.formInputSmall} placeholder="Enter Month" />
+        </div>
+    
+        <div className={styles.formGroup}>
+          <label>Cycle being Certified (Month/Year) (example: 05/2023):</label>
+          <input type="text" className={styles.formInput} placeholder="MM/YYYY" />
+        </div>
+  
+        <div className={styles.formGroup}>          
+          <p>
+            <div className={styles.subHeading}>Position Reimbursement & Status Report for corresponding LHRC Certification Period</div>
+            This report provides employees, positions, and reimbursement status information.  
+            Agencies are responsible for ensuring that the information is accurate.  Additional reference 
+            resources are available on FUSION here : 
+          <a href="https://fusion.dss.virginia.gov/hr/HR-Home/Local-Agency-Home/Local-HR-Connect-Project" target="_blank" rel="noreferrer">Local HR Connect Information</a>
+        </p>
+        </div>
+  
+        {/* Certification Section */}
+        <h4>Certify the Report</h4>
+        <p>Check the appropriate box (double-click the box for selection options):</p>
+  
+        <div className={styles.checkboxGroup}>
+          <label>
+            <input type="checkbox" className={styles.checkbox} /> I have reviewed the LHRC Position Reimbursement & Status Report and I certify that it is accurate.
+          </label>
+        </div>
+  
+        <div className={styles.checkboxGroup}>
+          <label>
+            <input type="checkbox" className={styles.checkbox} /> I have reviewed the LHRC Position Reimbursement & Status Report and I certify that all data except the employee / position information noted on the attached Reconciliation Summary Report.
+          </label>
+        </div>
+  
+        <p>
+          By signing this report, I certify that the information has been reconciled between the Payroll system and Local HR Connect (LHRC). All reconciling differences have been identified and are reflected on the attached Reconciliation Summary Report. Upon request, explanations and supporting documentation for reconciling items are available for review.
+        </p>
+  
+        <hr />
+  
+        {/* Signature Section */}
+        <h4>Completed by LDSS Office Manager or LHRC Administrator</h4>
+        <div className={styles.formGroup}>
+          <label>Print Name:</label>
+          <input type="text" className={styles.formInput} placeholder="Enter Name" />
+        </div>
+  
+        <div className={styles.formGroup}>
+          <label>Signature: </label>
+          <input type="text" className={styles.formInput} placeholder="Enter Signature" />
+        </div>
+  
+        <h4>Reviewed by LDSS Director or Assistant Director</h4>
+        <div className={styles.formGroup}>
+          <label>Print Name: </label>
+          <input type="text" className={styles.formInput} placeholder="Enter Name" />
+        </div>
+  
+        <div className={styles.formGroup}>
+          <label>Signature:</label>
+          <input type="text" className={styles.formInput} placeholder="Enter Signature" />
+        </div>
+  
+        <button disabled={true} className={styles.submitButton}>Submit</button>
+      </div>
+    );
+  };
+  
   private renderDiscrepancyReport = (): JSX.Element => {
     if (this.state.descrepencyReport.length === 0) {
       return <p>No discrepancies found.</p>;
@@ -350,31 +522,39 @@ export default class SpDescrepency extends React.Component<
             <React.Fragment key={index}>
               <tr>
                 <td>
-                  <a href="#">LETS positions (filled and vacant)</a>
+                  <a href="#" onClick={(e) => {e.preventDefault(); this.handleDiscrepancyClick("LetsPositions"); }}>
+                    LETS positions (filled and vacant)
+                  </a>
                 </td>
                 <td>{report.LetsPositions}</td>
               </tr>
               <tr>
-                <td>
-                  <a href="#">Vacant LETS positions</a>
+                <td>                  
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("VacantLetsPositions"); }}>  
+                    Vacant LETS positions
+                  </a>
                 </td>
                 <td>{report.VacantLetsPositions}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#">Filled LETS positions</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("FilledLetsPositions"); }}>
+                    Filled LETS positions
+                  </a>
                 </td>
                 <td>{report.FilledLetsPositions}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#">Employees in LETS not found local file</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("EmployeeLetsNotFoundLocal"); }}>
+                    Employees in LETS not found local file
+                  </a>
                 </td>
                 <td>{report.EmployeeLetsNotFoundLocal}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#">
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("VacantPositionsLets"); }}>
                     Vacant positions in LETS that may be improperly vacant (i.e.
                     there is an equivalent filled position in local data)
                   </a>
@@ -383,73 +563,85 @@ export default class SpDescrepency extends React.Component<
               </tr>
               <tr>
                 <td>
-                  <a href="#"># of local positions (filled and vacant)</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("NumberofLocalPositions"); }}>
+                    # of local positions (filled and vacant)
+                  </a>
                 </td>
                 <td>{report.NumberofLocalPositions}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#"># of filled local positions</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("NumberOfVacantLocalPositions"); }}>
+                    # of filled local positions
+                  </a>
                 </td>
                 <td>{report.NumberOfVacantLocalPositions}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#"># of employees in local not found in LETS data</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("NumberOfFilledLocalPositions"); }}>
+                    # of employees in local not found in LETS data
+                  </a>
                 </td>
                 <td>{report.NumberOfFilledLocalPositions}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#">
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("NumberOfEmployeeWithSignificantSalary"); }}>
                     # of employees with significant (&gt; $1.00) salary
                     variances between LETS and local data
                   </a>
                 </td>
-                <td>NA</td>
+                <td>{report.NumberOfEmployeeWithSignificantSalary}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#">
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("NumberOfLocalPositionsInLETS"); }}>
                     # of local positions that are also in LETS with different
                     state titles
                   </a>
                 </td>
-                <td>NA</td>
+                <td>{report.NumberOfLocalPositionsInLETS}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#">LETS local position is blank</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("LetsLocalPositionBlank"); }}>
+                    LETS local position is blank
+                  </a>
                 </td>
-                <td>NA</td>
+                <td>{report.LetsLocalPositionBlank}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#">
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("NumberOfEmployeeWithPastDueProbation"); }}>
                     # of Employees with Past Due Probation Ending Date
                   </a>
                 </td>
-                <td>NA</td>
+                <td>{report.NumberOfEmployeeWithPastDueProbation}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#">
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("NumberOfEmployeeWithPastDueAnnual"); }}>
                     # of Employees with Past Due Annual Evaluation Date
                   </a>
                 </td>
-                <td>NA</td>
+                <td>{report.NumberOfEmployeeWithPastDueAnnual}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#"># of Employees in Expired Positions</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("NumberOfEmployeeInExpiredPositions"); }}>
+                    # of Employees in Expired Positions
+                  </a>
                 </td>
-                <td>NA</td>
+                <td>{report.NumberOfEmployeeInExpiredPositions}</td>
               </tr>
               <tr>
                 <td>
-                  <a href="#"># of Positions with Invalid RSC values</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); this.handleDiscrepancyClick("NumberOfPositionsWithInvalidRSC"); }}>
+                    # of Positions with Invalid RSC values
+                  </a>
                 </td>
-                <td>NA</td>
+                <td>{report.NumberOfPositionsWithInvalidRSC}</td>
               </tr>
             </React.Fragment>
           ))}
@@ -457,6 +649,54 @@ export default class SpDescrepency extends React.Component<
       </table>
     );
   };
+
+  private handleDiscrepancyClick = (discrepancyName: string): void => {
+    const { masterData, validAgencyData } = this.state; // Get master data from state
+    let filteredData: IExcelRow[] = [];
+    
+    switch (discrepancyName) {      
+      case "LetsPositions":
+        filteredData = masterData; //.filter(row => row.EmployeeStatus === "Active"); // Example filter
+        break;
+  
+      case "VacantLetsPositions":
+        filteredData = masterData.filter(row => row.EmployeeFirstName); // Filter vacant positions
+        break;
+
+      case "FilledLetsPositions":
+        filteredData = masterData.filter(row => !row.EmployeeFirstName); // Filter vacant positions
+        break;
+  
+      case "EmployeeLetsNotFoundLocal":
+        filteredData = masterData; //.filter(row => row.EmployeeStatus === "Not Found");
+        break;
+
+      case "VacantPositionsLets":
+        filteredData = masterData; //.filter(row => row.EmployeeStatus === "Not Found");
+        break;
+      
+      case "NumberofLocalPositions":
+          filteredData = validAgencyData; //.filter(row => row.EmployeeStatus === "Not Found");
+          break;
+      
+      case "NumberOfVacantLocalPositions":
+        filteredData = validAgencyData.filter((agency) => agency.EmployeeFirstName);
+        break;
+      
+      case "NumberOfFilledLocalPositions":
+        filteredData = validAgencyData.filter((agency) => !agency.EmployeeFirstName);
+        break;
+      
+      default:
+        filteredData = [];
+    }
+    
+    this.setState({
+      selectedDiscrepancy: discrepancyName,
+      filteredDiscrepancyData: filteredData,
+      activeTab: "DiscrepancyDetails",
+    });
+  };  
 
   private handleShowDetailsClick = (item: IExcelRow): void => {
     //console.log("Button clicked for row:", item.BureauFIPS);
@@ -619,6 +859,7 @@ export default class SpDescrepency extends React.Component<
         invalidRows.push(row);
       }
     });
+    this.setState({ validAgencyData: validRows });
     return { validRows, invalidRows };
   }
 
@@ -719,18 +960,17 @@ export default class SpDescrepency extends React.Component<
               className={styles.uploadButton}
               disabled={
                 !this.state.selectedFile ||
-                !this.state.selectedAgency ||
+                this.state.masterData.length < 1 ||
                 this.state.isLoading
               }
-              onClick={this.handleValidateDescrepencyClick} // Same function as the input's onChange
+              onClick={this.handleValidateDescrepencyClick} 
             >
               Show Report
             </button>
           </div>
 
           <div className={styles.tabContainer}>
-            <button
-              className={
+            <button className={
                 this.state.activeTab === "MasterData"
                   ? styles.activeTab
                   : styles.tab
@@ -745,9 +985,19 @@ export default class SpDescrepency extends React.Component<
                   ? styles.activeTab
                   : styles.tab
               }
+              //disabled={!this.state.selectedDiscrepancy} // Disable if no discrepancy selected 
               onClick={() => this.setState({ activeTab: "DiscrepancyReport" })}
             >
               Discrepancy Report
+            </button>
+            <button className={this.state.activeTab === "DiscrepancyDetails" ? styles.activeTab : styles.tab}
+              disabled={!this.state.selectedDiscrepancy} // Disable if no discrepancy selected
+              onClick={() => this.setState({ activeTab: "DiscrepancyDetails" })}>
+              Discrepancy Details
+            </button>
+            <button className={this.state.activeTab === "FormTab" ? styles.activeTab : styles.tab}
+              onClick={() => this.setState({ activeTab: "FormTab" })}>
+              Form
             </button>
           </div>
 
@@ -758,6 +1008,8 @@ export default class SpDescrepency extends React.Component<
               <>
                 {this.state.activeTab === "MasterData" && this.renderMasterDataGrid()}
                 {this.state.activeTab === "DiscrepancyReport" && this.renderDiscrepancyReport()}
+                {this.state.activeTab === "DiscrepancyDetails" && this.renderSelectedDiscrepancyDetails()}
+                {this.state.activeTab === "FormTab" && this.renderApprovalForm()}
               </>
             )}
           </div>

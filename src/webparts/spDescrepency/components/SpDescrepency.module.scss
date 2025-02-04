@@ -134,7 +134,7 @@
   width: 100%;
   max-width: 300px;
 
-  .ms-Dropdown {
+  .msDropdown {
     width: 100%;
   }
 }
@@ -322,7 +322,7 @@ tbody tr:last-child td {
 
 /* Ensure the list inside follows the parent's scroll */
 .tabContent > div {
-  max-height: 90%; /* Makes sure child respects tabContent height */
+  max-height: 95%; /* Makes sure child respects tabContent height */
   overflow: auto; /* Forces scrollbar when needed */
 }
 
@@ -363,4 +363,103 @@ tbody tr:last-child td {
 
 .reportTable tr:nth-child(even) {
   background-color: #f9f9f9;
+}
+
+.reportTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.reportTable th, .reportTable td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: left;
+}
+
+.reportTable th {
+  background-color: #0078d4;
+  color: white;
+}
+
+.reportTable tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.reportTable a {
+  color: #0078d4;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.reportTable a:hover {
+  text-decoration: underline;
+}
+
+.formContainer {  
+  background: #f9f9f9;  
+  border-radius: 5px;
+  margin: auto;
+}
+
+.formInput, .formInputSmall, .formDropdown {
+  /*width: 90%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;*/
+}
+
+.formInputSmall {
+  width: 40%;
+}
+
+.submitButton {
+  width: 90%;
+  padding: 10px;
+  background-color: #0078d4;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.submitButton:hover {
+  background-color: #005a9e;
+}
+
+/* Render Approval Form Style*/
+
+.formGroup {
+  margin-bottom: 15px;
+  line-height: 30px;
+}
+
+.formRow {
+  display: flex;
+  justify-content: space-between;
+}
+
+.checkboxGroup {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  margin-left: 25px;
+}
+
+.checkbox {
+  margin-right: 10px;
+}
+
+.formTitle{
+  height: 40px;
+  font-size: larger;
+  font-weight: 500;
+  text-align: center;
+}
+
+.subHeading{
+  font-weight: 500;
+  text-decoration: underline;
 }
