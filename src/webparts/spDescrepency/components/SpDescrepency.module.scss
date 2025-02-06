@@ -463,3 +463,11 @@ tbody tr:last-child td {
   font-weight: 500;
   text-decoration: underline;
 }
+
+.directorMessage {
+  margin-top: 20px;
+  font-size: 16px;
+  color: #d9534f; /* Red color to highlight */
+  font-weight: bold;
+  text-align: center;
+}

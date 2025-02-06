@@ -31,9 +31,10 @@ interface ISpDescrepencyState {
   isPopupVisible: boolean;
   selectedRow: IExcelRow | undefined;
   descrepencyReport: IDiscrepancyResult[];
-  activeTab: "MasterData" | "DiscrepancyReport" | "DiscrepancyDetails" | "FormTab";
+  activeTab: "MasterData" | "DiscrepancyReport" | "DiscrepancyDetails" | "Admin" | "Director";
   selectedDiscrepancy?: string | undefined; // Stores selected discrepancy for Tab 3
   filteredDiscrepancyData: IExcelRow[]; // Stores the filtered data for details tab
+  isDirector: boolean; // New state to control access
 }
 
 interface IExcelRow {
@@ -95,6 +96,7 @@ export default class SpDescrepency extends React.Component<
       activeTab: "MasterData",
       selectedDiscrepancy: undefined,
       filteredDiscrepancyData: [],
+      isDirector: false, // Default to false until we check permissions
     };
 
     sp.setup({
@@ -119,6 +121,24 @@ export default class SpDescrepency extends React.Component<
   };
   */
 
+  public async componentDidMount(): Promise<void> {
+    await this.checkDirectorAccess(); // Check user access on load
+  }
+
+  private checkDirectorAccess = async (): Promise<void> => {
+    try {
+      //const currentUser = await sp.web.currentUser.get();
+      //const userGroups = await sp.web.currentUser.groups.get();
+  
+      // Check if user belongs to "Directors" group
+      //const isDirector = userGroups.some(group => group.Title === "Directors");
+  
+      this.setState({ isDirector: true });
+    } catch (error) {
+      console.error("Error checking user permissions:", error);
+    }
+  };
+  
   private handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -424,11 +444,9 @@ export default class SpDescrepency extends React.Component<
   };
   */
 
-  private renderApprovalForm = (): JSX.Element => {
-    return (
-      <div className={styles.formContainer}>
-        <div className={styles.formTitle}>Local HR Connect (LHRC) Certification Report</div>
-  
+  private renderForm = (): JSX.Element => {
+    return (      
+      <div>
         {/* Locality Information */}
         <div className={styles.formGroup}>
           <label>Locality Name (City or County):</label>
@@ -476,34 +494,44 @@ export default class SpDescrepency extends React.Component<
   
         <hr />
   
-        {/* Signature Section */}
+        {/* Administrator Signature Section */}
         <h4>Completed by LDSS Office Manager or LHRC Administrator</h4>
         <div className={styles.formGroup}>
           <label>Print Name:</label>
           <input type="text" className={styles.formInput} placeholder="Enter Name" />
         </div>
+        {/* <button disabled={true} className={styles.submitButton}>Submit</button> */}
+      </div>
+    );
+  };
   
-        <div className={styles.formGroup}>
-          <label>Signature: </label>
-          <input type="text" className={styles.formInput} placeholder="Enter Signature" />
-        </div>
+  private renderAdminForm = (): JSX.Element => {
+    return (
+      <div className={styles.formContainer}>        
+        <div className={styles.formTitle}>Local HR Connect (LHRC) Certification Report - Admin</div>
+        {this.renderForm()} {/* Reuse the form */}
+      </div>
+    );
+  };
   
+  private renderDirectorForm = (): JSX.Element => {
+    return (
+      <div className={styles.formContainer}>        
+        <div className={styles.formTitle}>Local HR Connect (LHRC) Certification Report - Director</div>
+        {this.renderForm()} {/* Reuse the same form */}
+
+        <hr />
+
+        {/* Director Signature Section */}
         <h4>Reviewed by LDSS Director or Assistant Director</h4>
         <div className={styles.formGroup}>
           <label>Print Name: </label>
           <input type="text" className={styles.formInput} placeholder="Enter Name" />
         </div>
-  
-        <div className={styles.formGroup}>
-          <label>Signature:</label>
-          <input type="text" className={styles.formInput} placeholder="Enter Signature" />
-        </div>
-  
-        <button disabled={true} className={styles.submitButton}>Submit</button>
       </div>
     );
   };
-  
+
   private renderDiscrepancyReport = (): JSX.Element => {
     if (this.state.descrepencyReport.length === 0) {
       return <p>No discrepancies found.</p>;
@@ -995,10 +1023,17 @@ export default class SpDescrepency extends React.Component<
               onClick={() => this.setState({ activeTab: "DiscrepancyDetails" })}>
               Discrepancy Details
             </button>
-            <button className={this.state.activeTab === "FormTab" ? styles.activeTab : styles.tab}
-              onClick={() => this.setState({ activeTab: "FormTab" })}>
-              Form
+            <button className={this.state.activeTab === "Admin" ? styles.activeTab : styles.tab}
+              onClick={() => this.setState({ activeTab: "Admin" })}>
+              Admin Tab
             </button>
+            {/* Show Director Tab only if user is authorized */}
+            {this.state.isDirector && (
+              <button className={this.state.activeTab === "Director" ? styles.activeTab : styles.tab}
+                onClick={() => this.setState({ activeTab: "Director" })}>
+                Director Tab
+              </button>
+            )}
           </div>
 
           <div className={styles.tabContent}>
@@ -1009,7 +1044,9 @@ export default class SpDescrepency extends React.Component<
                 {this.state.activeTab === "MasterData" && this.renderMasterDataGrid()}
                 {this.state.activeTab === "DiscrepancyReport" && this.renderDiscrepancyReport()}
                 {this.state.activeTab === "DiscrepancyDetails" && this.renderSelectedDiscrepancyDetails()}
-                {this.state.activeTab === "FormTab" && this.renderApprovalForm()}
+                {this.state.activeTab === "Admin" && this.renderAdminForm()}  {/* Admin Tab */}
+                {/* Only render Director Tab if user is authorized */}
+                {this.state.isDirector && this.state.activeTab === "Director" && this.renderDirectorForm()}  {/* Director Tab */}                
               </>
             )}
           </div>
