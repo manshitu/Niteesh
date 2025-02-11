@@ -406,8 +406,8 @@ tbody tr:last-child td {
   /*width: 90%;
   padding: 10px;
   margin: 10px 0;
-  border: 1px solid #ccc;
-  border-radius: 5px;*/
+  border: 1px solid #ccc;*/
+  border-radius: 5px;
 }
 
 .formInputSmall {
@@ -470,4 +470,29 @@ tbody tr:last-child td {
   color: #d9534f; /* Red color to highlight */
   font-weight: bold;
   text-align: center;
+}
+
+/*Saving Descrepency data to SharePoint*/
+
+.saveButton {
+  background-color: #0078d4;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 15px;
+}
+
+.saveButton:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.statusMessage {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #0078d4;
 }
