@@ -132,8 +132,8 @@ export default class SpDescrepency extends React.Component<
   */
 
   public async componentDidMount(): Promise<void> {    
-    await this.checkUserAccess(); // Fetch user role and agency name on load
-    await this.fetchDiscrepancyReportFromBackend(); // Load discrepancy data if available
+    await this.checkUserAccess(); // Fetch user role and agency name on load    
+    await this.fetchDiscrepancyReportForCurrentMonth(); // Load discrepancy data if available
   }
 
   private checkUserAccess = async (): Promise<void> => {    
@@ -162,8 +162,8 @@ export default class SpDescrepency extends React.Component<
           isDirector: !userRecord.field_11 && userRecord.directorAsstDirectoremail?.toLowerCase() === currentUserEmail,
           isHR: isHR, // Check if user is HR
           //agencyName: defaultAgency, // Get agency name (Title column)
-          selectedAgency: '02',
-          //selectedAgency: defaultAgency, // Set default agency
+          //selectedAgency: '02',
+          selectedAgency: defaultAgency, // Set default agency
           showAgencyDropdown: isHR, // Show dropdown only if HR
         },() => {
           if (!isHR && defaultAgency) {
@@ -313,32 +313,6 @@ export default class SpDescrepency extends React.Component<
     });
   };
 
-  /*
-  private handleAgencyChange = async (
-    event: React.FormEvent<HTMLDivElement>,
-    option?: IDropdownOption
-  ): Promise<void> => {
-    const selectedAgency = option?.key as string;
-
-    this.setState({ selectedAgency, isLoading: true, activeTab: "MasterData", masterData: [] });
-    
-    if (selectedAgency) {
-      try {
-        const data = await this.fetchMasterAgencyData(selectedAgency);
-        this.setState({ masterData: data, errorMessage: "" });
-      } catch (error) {
-        this.setState({
-          errorMessage:
-            "Error fetching data for the selected agency. Please try again." +
-            error,
-        });
-      } finally {
-        this.setState({ isLoading: false });
-      }
-    }
-  };
-*/
-
   private handleAgencyChange = async (agency: string): Promise<void> => {
     this.setState({ selectedAgency: agency });
     await this.fetchMasterAgencyData(agency);
@@ -479,25 +453,40 @@ export default class SpDescrepency extends React.Component<
       this.setState({ saveStatus: "No data to save." });
       return;
     }
+
+    // Get current month in two-digit format (e.g., "02" for February)
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;//String(currentDate.getMonth() + 1).padStart(2, "0"); // Ensures "01" to "12"
+    const currentYear = currentDate.getFullYear(); // Example: 2025
   
-    const listName = "LocalWorkforceReconciliationSummary"; // Ensure this matches your SharePoint list name
-  
+    const listName = "LocalWorkforceReconciliationSummary"; // Ensure this matches your SharePoint list name    
+    const discrepencyList = sp.web.lists.getByTitle(listName);
     this.setState({ isSaving: true, saveStatus: "Saving to SharePoint..." });
   
     try {
       await Promise.all(data.map(async (item) => {
-        await sp.web.lists.getByTitle(listName).items.add({
-          Title: item.LetsPositions, // Assuming 'Title' stores the discrepancy name
-          LetsPositions: item.LetsPositions,
-          VacantLetsPositions: item.VacantLetsPositions,
-          FilledLetsPositions: item.FilledLetsPositions,
-          EmployeeLetsNotFoundLocal: item.EmployeeLetsNotFoundLocal,
-          VacantPositionsLets: item.VacantPositionsLets,
-          NumberofLocalPositions: item.NumberofLocalPositions,
-          NumberOfVacantLocalPositions: item.NumberOfVacantLocalPositions,
-          NumberOfFilledLocalPositions: item.NumberOfFilledLocalPositions,
-          NumberOfEmployeesInLocalNotFoundInLets: item.NumberOfFilledLocalPositions,
-          DateReported: new Date().toISOString() // Adding timestamp
+        await discrepencyList.items.add({
+          //Title: item.LetsPositions, // Assuming 'Title' stores the discrepancy name
+          field_1: this.state.selectedAgency,
+          field_2: currentYear,
+          field_3: currentMonth,
+          field_4: item.LetsPositions,
+          field_5: item.VacantLetsPositions,
+          field_6: item.FilledLetsPositions,
+          field_7: item.EmployeeLetsNotFoundLocal,
+          field_8: item.VacantPositionsLets,
+          field_9: item.NumberofLocalPositions,
+          field_10: item.NumberOfVacantLocalPositions,
+          field_11: item.NumberOfFilledLocalPositions,
+          field_12: item.NumberOfFilledLocalPositions,
+          field_13: item.NumberOfEmployeeWithSignificantSalary,
+          field_14: item.NumberOfLocalPositionsInLETS,
+          field_15: item.LetsLocalPositionBlank,
+          field_16: item.NumberOfEmployeeWithPastDueProbation,
+          field_17: item.NumberOfEmployeeWithPastDueAnnual,
+          field_18: item.NumberOfEmployeeInExpiredPositions,
+          field_19: item.NumberOfPositionsWithInvalidRSC
+          //DateReported: new Date().toISOString() // Adding timestamp
         });
       }));
   
@@ -508,43 +497,54 @@ export default class SpDescrepency extends React.Component<
     }
   };
 
-  private fetchDiscrepancyReportFromBackend = async (): Promise<void> => {
+  private fetchDiscrepancyReportForCurrentMonth = async (): Promise<void> => {
+    const { selectedAgency } = this.state;
     try {
       const listName = "LocalWorkforceReconciliationSummary"; // Ensure this matches your SharePoint list name
   
-      // Fetch discrepancy data from SharePoint
-      const items = await sp.web.lists.getByTitle(listName).items.select("*").get();
+      // Get current month in "02" format and year as string
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1; // Ensures "01" to "12"
+      const currentYear = currentDate.getFullYear(); // Convert to string
+  
+      // Query SharePoint to get discrepancy data for the current month and year
+      const items = await sp.web.lists
+        .getByTitle(listName)
+        .items
+        .filter(`field_1 eq '${selectedAgency}' and field_3 eq '${currentMonth}' and field_2 eq '${currentYear}'`)
+        .select("*")
+        .get();
   
       if (items.length > 0) {
         // Map SharePoint data to IDiscrepancyResult structure
-        const descrepencyData: IDiscrepancyResult[] = items.map(item => ({
+        const descrepencyReport: IDiscrepancyResult[] = items.map(item => ({
           DiscrepancyName: item.Title, // Assuming Title holds the discrepancy name
-          LetsPositions: item.LetsPositions,
-          VacantLetsPositions: item.VacantLetsPositions,
-          FilledLetsPositions: item.FilledLetsPositions,
-          EmployeeLetsNotFoundLocal: item.EmployeeLetsNotFoundLocal,
-          VacantPositionsLets: item.VacantPositionsLets,
-          NumberofLocalPositions: item.NumberofLocalPositions,
-          NumberOfVacantLocalPositions: item.NumberOfVacantLocalPositions,
-          NumberOfFilledLocalPositions: item.NumberOfFilledLocalPositions,
-          NumberOfEmployeesInLocalNotFoundInLets: item.NumberOfEmployeesInLocalNotFoundInLets,
-          NumberOfEmployeeWithSignificantSalary: item.NumberOfEmployeeWithSignificantSalary,
-          NumberOfLocalPositionsInLETS: item.NumberOfLocalPositionsInLETS,
-          LetsLocalPositionBlank: item.LetsLocalPositionBlank,
-          NumberOfEmployeeWithPastDueProbation: item.NumberOfEmployeeWithPastDueProbation,
-          NumberOfEmployeeWithPastDueAnnual: item.NumberOfEmployeeWithPastDueAnnual,
-          NumberOfEmployeeInExpiredPositions: item.NumberOfEmployeeInExpiredPositions,
-          NumberOfPositionsWithInvalidRSC: item.NumberOfPositionsWithInvalidRSC
+          LetsPositions: item.field_4,
+          VacantLetsPositions: item.field_5,
+          FilledLetsPositions: item.field_6,
+          EmployeeLetsNotFoundLocal: item.field_7,
+          VacantPositionsLets: item.field_8,
+          NumberofLocalPositions: item.field_9,
+          NumberOfVacantLocalPositions: item.field_10,
+          NumberOfFilledLocalPositions: item.field_11,
+          //NumberOfEmployeesInLocalNotFoundInLets: Number(item.NumberOfEmployeesInLocalNotFoundInLets) || 0        
+          NumberOfEmployeeWithSignificantSalary: item.field_12,
+          NumberOfLocalPositionsInLETS: item.field_13,
+          LetsLocalPositionBlank: item.field_14,
+          NumberOfEmployeeWithPastDueProbation: item.field_15,
+          NumberOfEmployeeWithPastDueAnnual: item.field_16,
+          NumberOfEmployeeInExpiredPositions: item.field_17,
+          NumberOfPositionsWithInvalidRSC: item.field_18
         }));
-  
+          
         // Update state with fetched data
-        this.setState({ descrepencyReport: descrepencyData });
+        this.setState({ descrepencyReport: descrepencyReport });
       }
     } catch (error) {
       console.error("Error fetching discrepancy report from SharePoint:", error);
     }
   };
-  
+
   private renderForm = (): JSX.Element => {
     return (      
       <div>
@@ -1094,7 +1094,6 @@ export default class SpDescrepency extends React.Component<
     return null;
   };
 
-  //private validateExcelData(data: IExcelRow[]) {
   private validateExcelData(data: IExcelRow[]): { validRows: IExcelRow[]; invalidRows: IExcelRow[] } {    
     const validRows: IExcelRow[] = [];
     const invalidRows: IExcelRow[] = [];
