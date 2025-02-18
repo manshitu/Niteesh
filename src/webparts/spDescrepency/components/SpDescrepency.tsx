@@ -40,6 +40,15 @@ interface ISpDescrepencyState {
   showAgencyDropdown: boolean; // Determines whether to show the dropdown
   isSaving: boolean; // Track save operation
   saveStatus: string; // Show success/error message
+  userLocalityName: string; // Stores user's locality name
+  adminFormData: { // Stores Admin tab form data    
+    fips: string;
+    month: string;
+    certifiedCycle: string;
+    certifyAccurate: boolean;
+    certifyException: boolean;
+    printName: string;
+  };
 }
 
 interface IExcelRow {
@@ -107,6 +116,15 @@ export default class SpDescrepency extends React.Component<
       showAgencyDropdown: false, // Default is hidden, will be updated later
       isSaving: false,
       saveStatus: "",
+      userLocalityName: "", // Stores user's locality name
+      adminFormData: {
+        fips: "",
+        month: "",
+        certifiedCycle: "",
+        certifyAccurate: false,
+        certifyException: false,
+        printName: "",
+      },
     };
 
     sp.setup({
@@ -134,6 +152,7 @@ export default class SpDescrepency extends React.Component<
   public async componentDidMount(): Promise<void> {    
     await this.checkUserAccess(); // Fetch user role and agency name on load    
     await this.fetchDiscrepancyReportForCurrentMonth(); // Load discrepancy data if available
+    await this.fetchAdminFormData(); // Load admin form data if available
   }
 
   private checkUserAccess = async (): Promise<void> => {    
@@ -148,23 +167,29 @@ export default class SpDescrepency extends React.Component<
   
       // Find matching user record
       const userRecord = items.find(item => 
-        item.field_9?.toLowerCase() === currentUserEmail ||
-        item.field_11?.toLowerCase() === currentUserEmail ||
-        item.field_13?.toLowerCase() === currentUserEmail
+        item.PrimaryAdminEmail?.toLowerCase() === currentUserEmail ||
+        item.SecondaryAdminEmail?.toLowerCase() === currentUserEmail ||        
+        item.DirectorAsstDirectorEmail?.toLowerCase() === currentUserEmail ||
+        item.HREmail?.toLowerCase() === currentUserEmail
       );
   
       if (userRecord) {
+        const isAdmin = (userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail) || (userRecord.SecondaryAdminEmail?.toLowerCase() === currentUserEmail);
+        const isDirector = userRecord.DirectorAsstDirectorEmail?.toLowerCase() === currentUserEmail;
         const isHR = userRecord.HREmail?.toLowerCase() === currentUserEmail;
         const defaultAgency = userRecord.Title || ""; // Get agency name (Title column)
 
         this.setState({
-          isAdmin: userRecord.field_9?.toLowerCase() === currentUserEmail,
-          isDirector: !userRecord.field_11 && userRecord.directorAsstDirectoremail?.toLowerCase() === currentUserEmail,
+          isAdmin: isAdmin, //userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail,
+          //isAdmin: (userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail) || (userRecord.SecondaryAdminEmail?.toLowerCase() === currentUserEmail),
+          isDirector: isDirector, //!userRecord.DirectorAsstDirectorEmail && userRecord.DirectorAsstDirectorEmail?.toLowerCase() === currentUserEmail,
           isHR: isHR, // Check if user is HR
           //agencyName: defaultAgency, // Get agency name (Title column)
           //selectedAgency: '02',
           selectedAgency: defaultAgency, // Set default agency
-          showAgencyDropdown: isHR, // Show dropdown only if HR
+          showAgencyDropdown: isHR, // Show dropdown only if HR 
+          userLocalityName: userRecord.field_1 || "", // Get locality name
+               
         },() => {
           if (!isHR && defaultAgency) {
              // eslint-disable-next-line no-void
@@ -364,6 +389,57 @@ export default class SpDescrepency extends React.Component<
     }
   };
 
+  private fetchAdminFormData = async (): Promise<void> => {
+    try {
+      const listName = "CertificationReportData"; // Replace with your actual SharePoint list name
+  
+      const currentUser = await sp.web.currentUser.get();
+      const currentUserName = currentUser.Title;
+
+      // Get current month and year
+      const currentDate = new Date();
+      const currentMonth = String(currentDate.getMonth() + 1).padStart(2, "0"); // "01" to "12"
+      const currentYear = String(currentDate.getFullYear());
+  
+      // Query SharePoint to get admin form data for the current month and agency
+      const items = await sp.web.lists
+        .getByTitle(listName)
+        .items
+        .filter(`field_1 eq '${this.state.selectedAgency}' and field_2 eq '${currentMonth}' and field_3 eq '${currentYear}'`)
+        .select("*")
+        .get();
+  
+        if (items.length > 0) {
+          // Found data in SharePoint, set form state
+          const formData = items[0];
+          this.setState({
+            adminFormData: {
+              fips: formData.field_1 || "",
+              month: formData.field_2,
+              certifiedCycle: formData.field_3,
+              certifyAccurate: formData.CertifyAccurate,
+              certifyException: formData.CertifyException,
+              printName: formData.AdminPrintName,
+            },
+          });
+        } else {
+          // No data found, set default values
+          this.setState({
+            adminFormData: {
+              fips: "00000", // Default FIPS code
+              month: currentMonth,
+              certifiedCycle: currentMonth + "/" + currentYear,
+              certifyAccurate: false, // Default unchecked
+              certifyException: false, // Default unchecked
+              printName: currentUserName, // Pre-fill with current user's name
+            },
+          });
+        }
+    } catch (error) {
+      console.error("Error fetching admin form data:", error);
+    }
+  };
+
   private renderAgencyDropdown = (): JSX.Element | null => {
     if (!this.state.showAgencyDropdown) return null;
   
@@ -546,21 +622,31 @@ export default class SpDescrepency extends React.Component<
   };
 
   private renderForm = (): JSX.Element => {
+    //const { adminFormData, isSaving, saveStatus } = this.state;
+    const { adminFormData } = this.state;
     return (      
       <div>
         {/* Locality Information */}
         <div className={styles.formGroup}>
-          <label>Locality Name (City or County):</label>
-          <input type="text" className={styles.formInput} placeholder="Enter Locality Name" />
+          <label>Locality Name (City or County):</label>          
+          <input type="text" className={styles.formInput} value={this.state.userLocalityName} placeholder="Enter Locality Name"
+            onChange={(e) => this.setState({ userLocalityName: e.target.value })} 
+          />
           <label>FIPS:</label>
-          <input type="text" className={styles.formInputSmall} placeholder="Enter FIPS" />
+          <input type="text" className={styles.formInputSmall} value={adminFormData.fips}
+            onChange={(e) => this.setState({ adminFormData: { ...adminFormData, fips: e.target.value } })} 
+          />          
           <label>Month:</label>
-          <input type="text" className={styles.formInputSmall} placeholder="Enter Month" />
+          <input type="text" className={styles.formInputSmall} value={adminFormData.month}
+            onChange={(e) => this.setState({ adminFormData: { ...adminFormData, month: e.target.value } })} 
+          />          
         </div>
     
         <div className={styles.formGroup}>
           <label>Cycle being Certified (Month/Year) (example: 05/2023):</label>
-          <input type="text" className={styles.formInput} placeholder="MM/YYYY" />
+          <input type="text" className={styles.formInput} value={adminFormData.certifiedCycle}
+            onChange={(e) => this.setState({ adminFormData: { ...adminFormData, certifiedCycle: e.target.value } })} 
+          />
         </div>
   
         <div className={styles.formGroup}>          
@@ -579,13 +665,21 @@ export default class SpDescrepency extends React.Component<
   
         <div className={styles.checkboxGroup}>
           <label>
-            <input type="checkbox" className={styles.checkbox} /> I have reviewed the LHRC Position Reimbursement & Status Report and I certify that it is accurate.
+          <input type="checkbox" className={styles.checkbox} 
+              checked={adminFormData.certifyAccurate} 
+              onChange={(e) => this.setState({ adminFormData: { ...adminFormData, certifyAccurate: e.target.checked } })}
+            />
+            I have reviewed the LHRC Position Reimbursement & Status Report and I certify that it is accurate.
           </label>
         </div>
   
         <div className={styles.checkboxGroup}>
           <label>
-            <input type="checkbox" className={styles.checkbox} /> I have reviewed the LHRC Position Reimbursement & Status Report and I certify that all data except the employee / position information noted on the attached Reconciliation Summary Report.
+          <input type="checkbox" className={styles.checkbox} 
+              checked={adminFormData.certifyException} 
+              onChange={(e) => this.setState({ adminFormData: { ...adminFormData, certifyException: e.target.checked } })}
+            />
+            I have reviewed the LHRC Position Reimbursement & Status Report and I certify that all data except the employee / position information noted on the attached Reconciliation Summary Report.
           </label>
         </div>
   
@@ -599,18 +693,27 @@ export default class SpDescrepency extends React.Component<
         <h4>Completed by LDSS Office Manager or LHRC Administrator</h4>
         <div className={styles.formGroup}>
           <label>Print Name:</label>
-          <input type="text" className={styles.formInput} placeholder="Enter Name" />
+          <input type="text" className={styles.formInput} value={adminFormData.printName}
+            onChange={(e) => this.setState({ adminFormData: { ...adminFormData, printName: e.target.value } })} 
+          />
         </div>
         {/* <button disabled={true} className={styles.submitButton}>Submit</button> */}
       </div>
     );
   };
-  
+    
   private renderAdminForm = (): JSX.Element => {
+    const { isSaving, saveStatus } = this.state;
     return (
       <div className={styles.formContainer}>        
         <div className={styles.formTitle}>Local HR Connect (LHRC) Certification Report - Admin</div>
-        {this.renderForm()} {/* Reuse the form */}
+        {this.renderForm()} 
+
+        <button className={styles.saveButton} onClick={this.saveAdminFormToSharePoint} disabled={isSaving}>
+          {isSaving ? "Saving..." : "Save to SharePoint"}
+        </button>  
+        
+        {saveStatus && <p className={styles.statusMessage}>{saveStatus}</p>}
       </div>
     );
   };
@@ -631,6 +734,42 @@ export default class SpDescrepency extends React.Component<
         </div>
       </div>
     );
+  };
+
+  private saveAdminFormToSharePoint = async (): Promise<void> => {
+    const { adminFormData, selectedAgency } = this.state;
+    if (!adminFormData.certifyAccurate || !adminFormData.fips || !adminFormData.certifyException || !adminFormData.printName) {
+      this.setState({ saveStatus: "Please fill all fields before saving." });
+      return;
+    }
+  
+    // Get current month and year
+    const currentDate = new Date();
+    const currentMonth = String(currentDate.getMonth() + 1).padStart(2, "0"); // "01" to "12"
+    const currentYear = String(currentDate.getFullYear());
+  
+    const listName = "CertificationReportData"; // Replace with your SharePoint list name
+    this.setState({ isSaving: true, saveStatus: "Saving to SharePoint..." });
+  
+    try {
+      await sp.web.lists.getByTitle(listName).items.add({
+        Title: selectedAgency,
+        field_2: currentMonth,
+        field_3: currentYear,
+        field_1: adminFormData.fips,
+        CertifyAccurate: adminFormData.certifyAccurate,
+        CertifyException: adminFormData.certifyException,
+        //field_7: adminFormData.certifiedBy,
+        field_7: currentDate, // Adding timestamp
+        field_8: true, // Assuming checkbox values are boolean
+        AdminPrintName: adminFormData.printName,
+      });
+  
+      this.setState({ isSaving: false, saveStatus: "Admin form saved successfully!" });
+    } catch (error) {
+      console.error("Error saving admin form:", error);
+      this.setState({ isSaving: false, saveStatus: "Error saving. Please try again." });
+    }
   };
 
   private renderDiscrepancyReport = (): JSX.Element => {
