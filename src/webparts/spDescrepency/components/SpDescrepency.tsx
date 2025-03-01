@@ -13,7 +13,7 @@ import {
   //Dialog,
   //DialogType,
   DetailsList,
-  IColumn
+  IColumn,
 } from "office-ui-fabric-react";
 import { IWebPartContext } from "@microsoft/sp-webpart-base";
 import { SelectionMode } from "@fluentui/react";
@@ -28,26 +28,36 @@ interface ISpDescrepencyState {
   masterData: IExcelRow[];
   validAgencyData: IExcelRow[];
   currentPage: number;
+  recordsPerPage: number;
   isPopupVisible: boolean;
   selectedRow: IExcelRow | undefined;
   descrepencyReport: IDiscrepancyResult[];
-  activeTab: "MasterData" | "DiscrepancyReport" | "DiscrepancyDetails" | "Admin" | "Director";
+  activeTab: 
+    | "MasterData"
+    | "DiscrepancyReport"
+    | "DiscrepancyDetails"
+    | "Admin"
+    | "Director";
   selectedDiscrepancy?: string | undefined; // Stores selected discrepancy for Tab 3
   filteredDiscrepancyData: IExcelRow[]; // Stores the filtered data for details tab
   isAdmin: boolean;
   isDirector: boolean;
-  isHR: boolean;  
+  isHR: boolean;
   showAgencyDropdown: boolean; // Determines whether to show the dropdown
   isSaving: boolean; // Track save operation
   saveStatus: string; // Show success/error message
   userLocalityName: string; // Stores user's locality name
-  adminFormData: { // Stores Admin tab form data    
+  userFIPS: string; // Stores user's FIPS code
+  adminFormData: {
+    // Stores Admin tab form data
     fips: string;
     month: string;
     certifiedCycle: string;
     certifyAccurate: boolean;
     certifyException: boolean;
-    printName: string;
+    adminPrintName: string;
+    directorPrintName: string;
+    directorComment: string;
   };
 }
 
@@ -87,9 +97,9 @@ export default class SpDescrepency extends React.Component<
   ISpDescrepencyState
 > {
   private agencyOptions: IDropdownOption[] = [
-    { key: "1", text: "Agency 1" },
-    { key: "2", text: "Agency 2" },
-    { key: "3", text: "Agency 3" },
+    { key: "01", text: "Agency 1" },
+    { key: "02", text: "Agency 2" },
+    { key: "03", text: "Agency 3" },
   ];
 
   constructor(props: ISpDescrepencyProps) {
@@ -104,6 +114,7 @@ export default class SpDescrepency extends React.Component<
       masterData: [],
       validAgencyData: [],
       currentPage: 1,
+      recordsPerPage: 10,
       isPopupVisible: false,
       selectedRow: undefined,
       descrepencyReport: [],
@@ -117,13 +128,16 @@ export default class SpDescrepency extends React.Component<
       isSaving: false,
       saveStatus: "",
       userLocalityName: "", // Stores user's locality name
+      userFIPS: "", // Stores user's FIPS code
       adminFormData: {
         fips: "",
         month: "",
         certifiedCycle: "",
         certifyAccurate: false,
         certifyException: false,
-        printName: "",
+        adminPrintName: "",
+        directorPrintName: "",
+        directorComment: "",
       },
     };
 
@@ -149,61 +163,96 @@ export default class SpDescrepency extends React.Component<
   };
   */
 
-  public async componentDidMount(): Promise<void> {    
-    await this.checkUserAccess(); // Fetch user role and agency name on load    
+  public async componentDidMount(): Promise<void> {
+    await this.checkUserAccess(); // Fetch user role and agency name on load
     await this.fetchDiscrepancyReportForCurrentMonth(); // Load discrepancy data if available
     await this.fetchAdminFormData(); // Load admin form data if available
   }
 
-  private checkUserAccess = async (): Promise<void> => {    
+  private checkUserAccess = async (): Promise<void> => {
     try {
       // Get current user's email
       const currentUser = await sp.web.currentUser.get();
       const currentUserEmail = currentUser.Email.toLowerCase();
-  
+
       // Fetch user details from SharePoint list
       const listName = "LDSSProfileSummary"; // Replace with your actual list name
-      const items = await sp.web.lists.getByTitle(listName).items.select("*").get();
-  
+      const items = await sp.web.lists
+        .getByTitle(listName)
+        .items.select("*")
+        .get();
+
       // Find matching user record
-      const userRecord = items.find(item => 
-        item.PrimaryAdminEmail?.toLowerCase() === currentUserEmail ||
-        item.SecondaryAdminEmail?.toLowerCase() === currentUserEmail ||        
-        item.DirectorAsstDirectorEmail?.toLowerCase() === currentUserEmail ||
-        item.HREmail?.toLowerCase() === currentUserEmail
+      const userRecord = items.find(
+        (item) =>
+          item.PrimaryAdminEmail?.toLowerCase() === currentUserEmail ||
+          item.SecondaryAdminEmail?.toLowerCase() === currentUserEmail ||
+          item.DirectorAsstDirectorEmail?.toLowerCase() === currentUserEmail ||
+          item.HREmail?.toLowerCase() === currentUserEmail
       );
-  
+
       if (userRecord) {
-        const isAdmin = (userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail) || (userRecord.SecondaryAdminEmail?.toLowerCase() === currentUserEmail);
-        const isDirector = userRecord.DirectorAsstDirectorEmail?.toLowerCase() === currentUserEmail;
+        let adminPrintName = "";
+        let directorPrintName = "";
+        if (userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail) {
+          adminPrintName = userRecord.PrimaryAdminName || "";
+        } else if (
+          userRecord.SecondaryAdminEmail?.toLowerCase() === currentUserEmail
+        ) {
+          adminPrintName = userRecord.SecondaryAdminName || "";
+        }
+        if (
+          userRecord.DirectorAsstDirectorEmail?.toLowerCase() ===
+          currentUserEmail
+        ) {
+          directorPrintName = userRecord.DirectorAsstDirectorName || "";
+        }
+
+        const isAdmin =
+          userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail ||
+          userRecord.SecondaryAdminEmail?.toLowerCase() === currentUserEmail;
+
+        const isDirector =
+          userRecord.DirectorAsstDirectorEmail?.toLowerCase() ===
+          currentUserEmail;
+
         const isHR = userRecord.HREmail?.toLowerCase() === currentUserEmail;
         const defaultAgency = userRecord.Title || ""; // Get agency name (Title column)
 
-        this.setState({
-          isAdmin: isAdmin, //userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail,
-          //isAdmin: (userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail) || (userRecord.SecondaryAdminEmail?.toLowerCase() === currentUserEmail),
-          isDirector: isDirector, //!userRecord.DirectorAsstDirectorEmail && userRecord.DirectorAsstDirectorEmail?.toLowerCase() === currentUserEmail,
-          isHR: isHR, // Check if user is HR
-          //agencyName: defaultAgency, // Get agency name (Title column)
-          //selectedAgency: '02',
-          selectedAgency: defaultAgency, // Set default agency
-          showAgencyDropdown: isHR, // Show dropdown only if HR 
-          userLocalityName: userRecord.field_1 || "", // Get locality name
-               
-        },() => {
-          if (!isHR && defaultAgency) {
-             // eslint-disable-next-line no-void
-             void this.fetchMasterAgencyData(defaultAgency); // Auto-load data if not HR
+        this.setState(
+          {
+            isAdmin: isAdmin, //userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail,
+            //isAdmin: (userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail) || (userRecord.SecondaryAdminEmail?.toLowerCase() === currentUserEmail),
+            isDirector: isDirector, //!userRecord.DirectorAsstDirectorEmail && userRecord.DirectorAsstDirectorEmail?.toLowerCase() === currentUserEmail,
+            isHR: isHR, // Check if user is HR
+            //agencyName: defaultAgency, // Get agency name (Title column)
+            //selectedAgency: '02',
+            selectedAgency: defaultAgency, // Set default agency
+            showAgencyDropdown: isHR, // Show dropdown only if HR
+            userLocalityName: userRecord.field_1 || "", // Get locality name
+            userFIPS: userRecord.Title || "", // Get FIPS code
+            adminFormData: {
+              ...this.state.adminFormData,
+              adminPrintName: adminPrintName,
+              directorPrintName: directorPrintName, // Assigning correct print name
+            },
+          },
+          () => {
+            if (defaultAgency) {
+              // eslint-disable-next-line no-void
+              void this.fetchMasterAgencyData(defaultAgency); // Auto-load data if not HR
+            }
           }
-        }
-      );  
+        );
       }
     } catch (error) {
       console.error("Error fetching user access:", error);
     }
   };
-    
-  private handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>): void => {
+
+  private handleFileUpload = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ): void => {
     const file = event.target.files?.[0];
     if (file) {
       this.setState({
@@ -260,7 +309,7 @@ export default class SpDescrepency extends React.Component<
       await this.uploadFileToLibrary(selectedFile);
 
       // Save the valid data to the SharePoint list
-      await this.saveDataToList(validRows);
+      // await this.saveDataToList(validRows);
 
       this.setState({
         style: styles.successMessage,
@@ -268,7 +317,10 @@ export default class SpDescrepency extends React.Component<
       });
 
       // Calculating Discrepancies based on userData and masterData
-      const discrepancyResult = this.calculateDiscrepancies(validRows, masterData);
+      const discrepancyResult = this.calculateDiscrepancies(
+        validRows,
+        masterData
+      );
 
       // Display the discrepancy report
       this.displayDiscrepancyReport([discrepancyResult]);
@@ -287,17 +339,28 @@ export default class SpDescrepency extends React.Component<
     }
   };
 
-  private calculateDiscrepancies = (validRows: IExcelRow[], masterData: IExcelRow[]): IDiscrepancyResult => {
+  private calculateDiscrepancies = (
+    validRows: IExcelRow[],
+    masterData: IExcelRow[]
+  ): IDiscrepancyResult => {
     const letsPositions = masterData.length;
-    const vacantLetsPositions = masterData.filter((master) => master.EmployeeFirstName).length;
-    const filledLetsPositions = masterData.filter((master) => !master.EmployeeFirstName).length;
+    const vacantLetsPositions = masterData.filter(
+      (master) => master.EmployeeFirstName
+    ).length;
+    const filledLetsPositions = masterData.filter(
+      (master) => !master.EmployeeFirstName
+    ).length;
 
     const employeeLetsNotFoundLocal = 0; //validRows.filter((agency) => !agency.EmployeeFirstName).length;
     const vacantPositionsLets = 0; //masterData.filter((master) => !master.EmployeeFirstName).length;
 
     const numberofLocalPositions = validRows.length;
-    const numberOfVacantLocalPositions = validRows.filter((agency) => agency.EmployeeFirstName).length;
-    const numberOfFilledLocalPositions = validRows.filter((agency) => !agency.EmployeeFirstName).length;
+    const numberOfVacantLocalPositions = validRows.filter(
+      (agency) => agency.EmployeeFirstName
+    ).length;
+    const numberOfFilledLocalPositions = validRows.filter(
+      (agency) => !agency.EmployeeFirstName
+    ).length;
 
     const numberOfEmployeeWithSignificantSalary = 0;
     const numberOfLocalPositionsInLETS = 0;
@@ -316,17 +379,21 @@ export default class SpDescrepency extends React.Component<
       NumberofLocalPositions: numberofLocalPositions,
       NumberOfVacantLocalPositions: numberOfVacantLocalPositions,
       NumberOfFilledLocalPositions: numberOfFilledLocalPositions,
-      NumberOfEmployeeWithSignificantSalary: numberOfEmployeeWithSignificantSalary,
+      NumberOfEmployeeWithSignificantSalary:
+        numberOfEmployeeWithSignificantSalary,
       NumberOfLocalPositionsInLETS: numberOfLocalPositionsInLETS,
       LetsLocalPositionBlank: letsLocalPositionBlank,
-      NumberOfEmployeeWithPastDueProbation: numberOfEmployeeWithPastDueProbation,
+      NumberOfEmployeeWithPastDueProbation:
+        numberOfEmployeeWithPastDueProbation,
       NumberOfEmployeeWithPastDueAnnual: numberOfEmployeeWithPastDueAnnual,
       NumberOfEmployeeInExpiredPositions: numberOfEmployeeInExpiredPositions,
       NumberOfPositionsWithInvalidRSC: numberOfPositionsWithInvalidRSC,
     };
   };
 
-  private displayDiscrepancyReport = (discrepancies: IDiscrepancyResult[]): void => {
+  private displayDiscrepancyReport = (
+    discrepancies: IDiscrepancyResult[]
+  ): void => {
     if (!discrepancies) {
       alert("No discrepancies found. Data matches the master database.");
       return;
@@ -350,8 +417,8 @@ export default class SpDescrepency extends React.Component<
         .getByTitle(listName)
         .items.filter(`field_4 eq '${agency}'`) // Filter based on the selected agency
         .select("*")
-        .top(100) // Adjust the number of rows to fetch
-        .get();
+        //.top(100) // Adjust the number of rows to fetch
+        .getAll();
 
       const masterData = items.map((item) => ({
         BureauFIPS: item.Title,
@@ -392,7 +459,7 @@ export default class SpDescrepency extends React.Component<
   private fetchAdminFormData = async (): Promise<void> => {
     try {
       const listName = "CertificationReportData"; // Replace with your actual SharePoint list name
-  
+
       const currentUser = await sp.web.currentUser.get();
       const currentUserName = currentUser.Title;
 
@@ -400,41 +467,46 @@ export default class SpDescrepency extends React.Component<
       const currentDate = new Date();
       const currentMonth = String(currentDate.getMonth() + 1).padStart(2, "0"); // "01" to "12"
       const currentYear = String(currentDate.getFullYear());
-  
+
       // Query SharePoint to get admin form data for the current month and agency
       const items = await sp.web.lists
         .getByTitle(listName)
-        .items
-        .filter(`field_1 eq '${this.state.selectedAgency}' and field_2 eq '${currentMonth}' and field_3 eq '${currentYear}'`)
+        .items.filter(
+          `field_1 eq '${this.state.selectedAgency}' and field_2 eq '${currentMonth}' and field_3 eq '${currentYear}'`
+        )
         .select("*")
         .get();
-  
-        if (items.length > 0) {
-          // Found data in SharePoint, set form state
-          const formData = items[0];
-          this.setState({
-            adminFormData: {
-              fips: formData.field_1 || "",
-              month: formData.field_2,
-              certifiedCycle: formData.field_3,
-              certifyAccurate: formData.CertifyAccurate,
-              certifyException: formData.CertifyException,
-              printName: formData.AdminPrintName,
-            },
-          });
-        } else {
-          // No data found, set default values
-          this.setState({
-            adminFormData: {
-              fips: "00000", // Default FIPS code
-              month: currentMonth,
-              certifiedCycle: currentMonth + "/" + currentYear,
-              certifyAccurate: false, // Default unchecked
-              certifyException: false, // Default unchecked
-              printName: currentUserName, // Pre-fill with current user's name
-            },
-          });
-        }
+
+      if (items.length > 0) {
+        // Found data in SharePoint, set form state
+        const formData = items[0];
+        this.setState({
+          adminFormData: {
+            fips: formData.field_1 || "",
+            month: formData.field_2,
+            certifiedCycle: formData.field_3,
+            certifyAccurate: formData.CertifyAccurate,
+            certifyException: formData.CertifyException,
+            adminPrintName: formData.AdminPrintName,
+            directorPrintName: formData.DirectorPrintName,
+            directorComment: formData.DirectorComment,
+          },
+        });
+      } else {
+        // No data found, set default values
+        this.setState({
+          adminFormData: {
+            fips: this.state.userFIPS, // Default FIPS code
+            month: currentMonth,
+            certifiedCycle: currentMonth + "/" + currentYear,
+            certifyAccurate: false, // Default unchecked
+            certifyException: false, // Default unchecked
+            adminPrintName: currentUserName,
+            directorPrintName: currentUserName,
+            directorComment: "", // Default empty
+          },
+        });
+      }
     } catch (error) {
       console.error("Error fetching admin form data:", error);
     }
@@ -442,7 +514,7 @@ export default class SpDescrepency extends React.Component<
 
   private renderAgencyDropdown = (): JSX.Element | null => {
     if (!this.state.showAgencyDropdown) return null;
-  
+
     return (
       <Dropdown
         label="Select Agency Name"
@@ -454,63 +526,228 @@ export default class SpDescrepency extends React.Component<
       />
     );
   };
-  
-  public renderMasterDataGrid(): JSX.Element {
-    //const { masterData, isLoading } = this.state;
-    const { masterData } = this.state;
 
-    if (this.state.selectedAgency === undefined) {
-      return <p>Please select agency to see respective data.</p>;
-    } else if (this.state.selectedAgency && masterData.length === 0) {
+  private handleDirectorApproval = async (
+    isApproved: boolean
+  ): Promise<void> => {
+    const { adminFormData, selectedAgency } = this.state;
+
+    if (!adminFormData.fips || !adminFormData.certifiedCycle) {
+      this.setState({
+        saveStatus: "Please fill all fields before proceeding.",
+      });
+      return;
+    }
+
+    const currentDate = new Date();
+    const currentMonth = String(currentDate.getMonth() + 1).padStart(2, "0");
+    const currentYear = String(currentDate.getFullYear());
+
+    const listName = "CertificationReportData"; // SharePoint list name
+    this.setState({ isSaving: true, saveStatus: "Processing..." });
+
+    try {
+      const list = sp.web.lists.getByTitle(listName);
+
+      // Check if an entry already exists
+      const existingItems = await list.items
+        .filter(
+          `Title eq '${selectedAgency}' and field_2 eq '${currentMonth}' and field_3 eq '${currentYear}'`
+        )
+        .top(1)
+        .get();
+
+      if (existingItems.length > 0) {
+        const existingItemId = existingItems[0].Id;
+        await list.items.getById(existingItemId).update({
+          field_11: isApproved,
+          DirectorPrintName: adminFormData.directorPrintName,
+          DirectorComment: adminFormData.directorComment,
+          field_10: currentDate, // Timestamp update
+        });
+
+        this.setState({
+          isSaving: false,
+          saveStatus: isApproved
+            ? "Form approved successfully!"
+            : "Form rejected successfully!",
+        });
+      } else {
+        await list.items.add({
+          field_11: isApproved,
+          DirectorPrintName: adminFormData.directorPrintName,
+          DirectorComment: adminFormData.directorComment,
+          field_10: currentDate, // Timestamp
+        });
+
+        this.setState({
+          isSaving: false,
+          saveStatus: isApproved
+            ? "Form approved successfully!"
+            : "Form rejected successfully!",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving director approval:", error);
+      this.setState({
+        isSaving: false,
+        saveStatus: "Error saving, please try again.",
+      });
+    }
+  };
+
+  public renderMasterDataGrid(): JSX.Element {
+    const { masterData, selectedAgency, currentPage, recordsPerPage } =
+      this.state;
+
+    if (!selectedAgency) {
+      return <p>Please select an agency to see respective data.</p>;
+    } else if (selectedAgency && masterData.length === 0) {
       return <p>No data available for the selected agency.</p>;
     }
+
+    // Apply pagination
+    const startIndex = (currentPage - 1) * recordsPerPage;
+    const paginatedData = masterData.slice(
+      startIndex,
+      startIndex + recordsPerPage
+    );
 
     return (
       <div className={styles.gridContainer}>
         <DetailsList
-          items={masterData}
+          items={paginatedData} // Render paginated data only
           columns={this.columns}
-          selectionMode={SelectionMode.single} // Enforces single row selection
-          //onItemInvoked={this.handleShowDetailsClick} // Handles row click
+          selectionMode={SelectionMode.single}
           onActiveItemChanged={this.handleShowDetailsClick}
-          compact={true} // Optional: makes the grid more compact
+          compact={true}
         />
+        {this.renderPaginationControls()} {/* Add pagination UI */}
       </div>
     );
   }
 
+  private renderPaginationControls(): JSX.Element {
+    const { currentPage, recordsPerPage, masterData } = this.state;
+    const totalPages = Math.ceil(masterData.length / recordsPerPage);
+
+    if (totalPages <= 1) return <></>; // Hide pagination if only one page
+
+    return (
+      <div className={styles.paginationContainer}>
+        <button
+          className={styles.paginationButton}
+          disabled={currentPage === 1}
+          onClick={() => this.changePage(1)}
+        >
+          ⏮ First
+        </button>
+        <button
+          className={styles.paginationButton}
+          disabled={currentPage === 1}
+          onClick={() => this.changePage(currentPage - 1)}
+        >
+          ◀ Prev
+        </button>
+        <span className={styles.pageInfo}>
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          className={styles.paginationButton}
+          disabled={currentPage === totalPages}
+          onClick={() => this.changePage(currentPage + 1)}
+        >
+          Next ▶
+        </button>
+        <button
+          className={styles.paginationButton}
+          disabled={currentPage === totalPages}
+          onClick={() => this.changePage(totalPages)}
+        >
+          ⏭ Last
+        </button>
+      </div>
+    );
+  }
+
+  private changePage = (pageNumber: number): void => {
+    this.setState({ currentPage: pageNumber });
+  };
+
   private renderSelectedDiscrepancyDetails = (): JSX.Element => {
-    const { selectedDiscrepancy, filteredDiscrepancyData } = this.state;    
-  
+    const { selectedDiscrepancy, filteredDiscrepancyData } = this.state;
+
     if (!selectedDiscrepancy) {
       return <p>Please select a discrepancy from the report.</p>;
     }
-  
+
     if (filteredDiscrepancyData.length === 0) {
       return <p>No records found for selected discrepancy.</p>;
     }
-  
+
     // Define dynamic columns based on the discrepancy type
     let columns: IColumn[] = [];
-  
+
     if (selectedDiscrepancy === "LetsPositions") {
       columns = [
-        { key: "1", name: "Employee Name", fieldName: "FirstName", minWidth: 100, maxWidth: 150 },
-        { key: "2", name: "Position Number", fieldName: "LocalPositionNumber", minWidth: 100, maxWidth: 150 },
-        { key: "3", name: "Salary", fieldName: "EmployeeSalary", minWidth: 80, maxWidth: 120 },
+        {
+          key: "1",
+          name: "Employee Name",
+          fieldName: "FirstName",
+          minWidth: 100,
+          maxWidth: 150,
+        },
+        {
+          key: "2",
+          name: "Position Number",
+          fieldName: "LocalPositionNumber",
+          minWidth: 100,
+          maxWidth: 150,
+        },
+        {
+          key: "3",
+          name: "Salary",
+          fieldName: "EmployeeSalary",
+          minWidth: 80,
+          maxWidth: 120,
+        },
       ];
     } else if (selectedDiscrepancy === "VacantLetsPositions") {
       columns = [
-        { key: "1", name: "BureauFIPS", fieldName: "BureauFIPS", minWidth: 100, maxWidth: 150 },
-        { key: "2", name: "Job Title", fieldName: "Region", minWidth: 100, maxWidth: 150 },
+        {
+          key: "1",
+          name: "BureauFIPS",
+          fieldName: "BureauFIPS",
+          minWidth: 100,
+          maxWidth: 150,
+        },
+        {
+          key: "2",
+          name: "Job Title",
+          fieldName: "Region",
+          minWidth: 100,
+          maxWidth: 150,
+        },
       ];
     } else if (selectedDiscrepancy === "FilledLetsPositions") {
       columns = [
-        { key: "1", name: "Employee Name", fieldName: "FirstName", minWidth: 100, maxWidth: 150 },
-        { key: "2", name: "Status", fieldName: "EmployeeStatus", minWidth: 100, maxWidth: 150 },
+        {
+          key: "1",
+          name: "Employee Name",
+          fieldName: "FirstName",
+          minWidth: 100,
+          maxWidth: 150,
+        },
+        {
+          key: "2",
+          name: "Status",
+          fieldName: "EmployeeStatus",
+          minWidth: 100,
+          maxWidth: 150,
+        },
       ];
     }
-  
+
     return (
       <div className={styles.tabContent}>
         <h3>Details for {selectedDiscrepancy}</h3>
@@ -519,57 +756,100 @@ export default class SpDescrepency extends React.Component<
           columns={columns}
           selectionMode={SelectionMode.none}
           compact={true}
-        />                  
+        />
       </div>
     );
-  };    
-  
-  private saveDiscrepancyReportToSharePoint = async (data: IDiscrepancyResult[]): Promise<void> => {
+  };
+
+  private saveDiscrepancyReportToSharePoint = async (
+    data: IDiscrepancyResult[]
+  ): Promise<void> => {
+    const { validAgencyData } = this.state; // Get master data from state
     if (data.length === 0) {
       this.setState({ saveStatus: "No data to save." });
       return;
     }
 
-    // Get current month in two-digit format (e.g., "02" for February)
     const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;//String(currentDate.getMonth() + 1).padStart(2, "0"); // Ensures "01" to "12"
+    const currentMonth = currentDate.getMonth() + 1; // Ensures "01" to "12"
     const currentYear = currentDate.getFullYear(); // Example: 2025
-  
-    const listName = "LocalWorkforceReconciliationSummary"; // Ensure this matches your SharePoint list name    
-    const discrepencyList = sp.web.lists.getByTitle(listName);
+
+    const listName = "LocalWorkforceReconciliationSummary";
+    const discrepancyList = sp.web.lists.getByTitle(listName);
     this.setState({ isSaving: true, saveStatus: "Saving to SharePoint..." });
-  
+
     try {
-      await Promise.all(data.map(async (item) => {
-        await discrepencyList.items.add({
-          //Title: item.LetsPositions, // Assuming 'Title' stores the discrepancy name
-          field_1: this.state.selectedAgency,
-          field_2: currentYear,
-          field_3: currentMonth,
-          field_4: item.LetsPositions,
-          field_5: item.VacantLetsPositions,
-          field_6: item.FilledLetsPositions,
-          field_7: item.EmployeeLetsNotFoundLocal,
-          field_8: item.VacantPositionsLets,
-          field_9: item.NumberofLocalPositions,
-          field_10: item.NumberOfVacantLocalPositions,
-          field_11: item.NumberOfFilledLocalPositions,
-          field_12: item.NumberOfFilledLocalPositions,
-          field_13: item.NumberOfEmployeeWithSignificantSalary,
-          field_14: item.NumberOfLocalPositionsInLETS,
-          field_15: item.LetsLocalPositionBlank,
-          field_16: item.NumberOfEmployeeWithPastDueProbation,
-          field_17: item.NumberOfEmployeeWithPastDueAnnual,
-          field_18: item.NumberOfEmployeeInExpiredPositions,
-          field_19: item.NumberOfPositionsWithInvalidRSC
-          //DateReported: new Date().toISOString() // Adding timestamp
-        });
-      }));
-  
-      this.setState({ isSaving: false, saveStatus: "Discrepancy report saved successfully!" });
+      await Promise.all(
+        data.map(async (item) => {
+          // Define a unique filter to check if the item exists
+          const filter = `field_1 eq '${this.state.selectedAgency}' and field_2 eq ${currentYear} and field_3 eq ${currentMonth}'`;
+
+          const existingItems = await discrepancyList.items
+            .filter(filter)
+            .get();
+
+          if (existingItems.length > 0) {
+            // Update existing record
+            const existingItemId = existingItems[0].Id; // Get ID of existing item
+            await discrepancyList.items.getById(existingItemId).update({
+              field_5: item.VacantLetsPositions,
+              field_6: item.FilledLetsPositions,
+              field_7: item.EmployeeLetsNotFoundLocal,
+              field_8: item.VacantPositionsLets,
+              field_9: item.NumberofLocalPositions,
+              field_10: item.NumberOfVacantLocalPositions,
+              field_11: item.NumberOfFilledLocalPositions,
+              field_12: item.NumberOfFilledLocalPositions,
+              field_13: item.NumberOfEmployeeWithSignificantSalary,
+              field_14: item.NumberOfLocalPositionsInLETS,
+              field_15: item.LetsLocalPositionBlank,
+              field_16: item.NumberOfEmployeeWithPastDueProbation,
+              field_17: item.NumberOfEmployeeWithPastDueAnnual,
+              field_18: item.NumberOfEmployeeInExpiredPositions,
+              field_19: item.NumberOfPositionsWithInvalidRSC,
+            });
+          } else {
+            // Insert new record
+            await discrepancyList.items.add({
+              field_1: this.state.selectedAgency,
+              field_2: currentYear,
+              field_3: currentMonth,
+              field_4: item.LetsPositions,
+              field_5: item.VacantLetsPositions,
+              field_6: item.FilledLetsPositions,
+              field_7: item.EmployeeLetsNotFoundLocal,
+              field_8: item.VacantPositionsLets,
+              field_9: item.NumberofLocalPositions,
+              field_10: item.NumberOfVacantLocalPositions,
+              field_11: item.NumberOfFilledLocalPositions,
+              field_12: item.NumberOfFilledLocalPositions,
+              field_13: item.NumberOfEmployeeWithSignificantSalary,
+              field_14: item.NumberOfLocalPositionsInLETS,
+              field_15: item.LetsLocalPositionBlank,
+              field_16: item.NumberOfEmployeeWithPastDueProbation,
+              field_17: item.NumberOfEmployeeWithPastDueAnnual,
+              field_18: item.NumberOfEmployeeInExpiredPositions,
+              field_19: item.NumberOfPositionsWithInvalidRSC,
+            });
+          }
+        })
+      );
+
+      // Save the valid data to the SharePoint list
+      if (validAgencyData.length > 0) {
+        await this.saveDataToList(validAgencyData);
+      }
+
+      this.setState({
+        isSaving: false,
+        saveStatus: "Discrepancy report saved successfully!",
+      });
     } catch (error) {
       console.error("Error saving discrepancy report to SharePoint:", error);
-      this.setState({ isSaving: false, saveStatus: "Error saving to SharePoint. Please try again." });
+      this.setState({
+        isSaving: false,
+        saveStatus: "Error saving to SharePoint. Please try again.",
+      });
     }
   };
 
@@ -577,23 +857,24 @@ export default class SpDescrepency extends React.Component<
     const { selectedAgency } = this.state;
     try {
       const listName = "LocalWorkforceReconciliationSummary"; // Ensure this matches your SharePoint list name
-  
+
       // Get current month in "02" format and year as string
       const currentDate = new Date();
       const currentMonth = currentDate.getMonth() + 1; // Ensures "01" to "12"
       const currentYear = currentDate.getFullYear(); // Convert to string
-  
+
       // Query SharePoint to get discrepancy data for the current month and year
       const items = await sp.web.lists
         .getByTitle(listName)
-        .items
-        .filter(`field_1 eq '${selectedAgency}' and field_3 eq '${currentMonth}' and field_2 eq '${currentYear}'`)
+        .items.filter(
+          `field_1 eq '${selectedAgency}' and field_3 eq '${currentMonth}' and field_2 eq '${currentYear}'`
+        )
         .select("*")
         .get();
-  
+
       if (items.length > 0) {
         // Map SharePoint data to IDiscrepancyResult structure
-        const descrepencyReport: IDiscrepancyResult[] = items.map(item => ({
+        const descrepencyReport: IDiscrepancyResult[] = items.map((item) => ({
           DiscrepancyName: item.Title, // Assuming Title holds the discrepancy name
           LetsPositions: item.field_4,
           VacantLetsPositions: item.field_5,
@@ -603,134 +884,271 @@ export default class SpDescrepency extends React.Component<
           NumberofLocalPositions: item.field_9,
           NumberOfVacantLocalPositions: item.field_10,
           NumberOfFilledLocalPositions: item.field_11,
-          //NumberOfEmployeesInLocalNotFoundInLets: Number(item.NumberOfEmployeesInLocalNotFoundInLets) || 0        
+          //NumberOfEmployeesInLocalNotFoundInLets: Number(item.NumberOfEmployeesInLocalNotFoundInLets) || 0
           NumberOfEmployeeWithSignificantSalary: item.field_12,
           NumberOfLocalPositionsInLETS: item.field_13,
           LetsLocalPositionBlank: item.field_14,
           NumberOfEmployeeWithPastDueProbation: item.field_15,
           NumberOfEmployeeWithPastDueAnnual: item.field_16,
           NumberOfEmployeeInExpiredPositions: item.field_17,
-          NumberOfPositionsWithInvalidRSC: item.field_18
+          NumberOfPositionsWithInvalidRSC: item.field_18,
         }));
-          
+
         // Update state with fetched data
         this.setState({ descrepencyReport: descrepencyReport });
       }
     } catch (error) {
-      console.error("Error fetching discrepancy report from SharePoint:", error);
+      console.error(
+        "Error fetching discrepancy report from SharePoint:",
+        error
+      );
     }
   };
 
   private renderForm = (): JSX.Element => {
-    //const { adminFormData, isSaving, saveStatus } = this.state;
-    const { adminFormData } = this.state;
-    return (      
+    const { adminFormData, isAdmin } = this.state;
+    return (
       <div>
         {/* Locality Information */}
         <div className={styles.formGroup}>
-          <label>Locality Name (City or County):</label>          
-          <input type="text" className={styles.formInput} value={this.state.userLocalityName} placeholder="Enter Locality Name"
-            onChange={(e) => this.setState({ userLocalityName: e.target.value })} 
+          <label>Locality Name (City or County):</label>
+          <input
+            type="text"
+            className={styles.formInput}
+            value={this.state.userLocalityName}
+            placeholder="Enter Locality Name"
+            onChange={(e) =>
+              this.setState({ userLocalityName: e.target.value })
+            }
+            disabled
           />
           <label>FIPS:</label>
-          <input type="text" className={styles.formInputSmall} value={adminFormData.fips}
-            onChange={(e) => this.setState({ adminFormData: { ...adminFormData, fips: e.target.value } })} 
-          />          
+          <input
+            type="text"
+            className={styles.formInputSmall}
+            value={adminFormData.fips}
+            onChange={(e) =>
+              this.setState({
+                adminFormData: { ...adminFormData, fips: e.target.value },
+              })
+            }
+            disabled
+          />
           <label>Month:</label>
-          <input type="text" className={styles.formInputSmall} value={adminFormData.month}
-            onChange={(e) => this.setState({ adminFormData: { ...adminFormData, month: e.target.value } })} 
-          />          
-        </div>
-    
-        <div className={styles.formGroup}>
-          <label>Cycle being Certified (Month/Year) (example: 05/2023):</label>
-          <input type="text" className={styles.formInput} value={adminFormData.certifiedCycle}
-            onChange={(e) => this.setState({ adminFormData: { ...adminFormData, certifiedCycle: e.target.value } })} 
+          <input
+            type="text"
+            className={styles.formInputSmall}
+            value={adminFormData.month}
+            onChange={(e) =>
+              this.setState({
+                adminFormData: { ...adminFormData, month: e.target.value },
+              })
+            }
+            disabled
           />
         </div>
-  
-        <div className={styles.formGroup}>          
-          <p>
-            <div className={styles.subHeading}>Position Reimbursement & Status Report for corresponding LHRC Certification Period</div>
-            This report provides employees, positions, and reimbursement status information.  
-            Agencies are responsible for ensuring that the information is accurate.  Additional reference 
-            resources are available on FUSION here : 
-          <a href="https://fusion.dss.virginia.gov/hr/HR-Home/Local-Agency-Home/Local-HR-Connect-Project" target="_blank" rel="noreferrer">Local HR Connect Information</a>
-        </p>
+
+        <div className={styles.formGroup}>
+          <label>Cycle being Certified (Month/Year) (example: 05/2023):</label>
+          <input
+            type="text"
+            className={styles.formInput}
+            value={adminFormData.certifiedCycle}
+            onChange={(e) =>
+              this.setState({
+                adminFormData: {
+                  ...adminFormData,
+                  certifiedCycle: e.target.value,
+                },
+              })
+            }
+            disabled
+          />
         </div>
-  
+
+        <div className={styles.formGroup}>
+          <p>
+            <div className={styles.subHeading}>
+              Position Reimbursement & Status Report for corresponding LHRC
+              Certification Period
+            </div>
+            This report provides employees, positions, and reimbursement status
+            information. Agencies are responsible for ensuring that the
+            information is accurate. Additional reference resources are
+            available on FUSION here :
+            <a
+              href="https://fusion.dss.virginia.gov/hr/HR-Home/Local-Agency-Home/Local-HR-Connect-Project"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Local HR Connect Information
+            </a>
+          </p>
+        </div>
+
         {/* Certification Section */}
         <h4>Certify the Report</h4>
-        <p>Check the appropriate box (double-click the box for selection options):</p>
-  
-        <div className={styles.checkboxGroup}>
-          <label>
-          <input type="checkbox" className={styles.checkbox} 
-              checked={adminFormData.certifyAccurate} 
-              onChange={(e) => this.setState({ adminFormData: { ...adminFormData, certifyAccurate: e.target.checked } })}
-            />
-            I have reviewed the LHRC Position Reimbursement & Status Report and I certify that it is accurate.
-          </label>
-        </div>
-  
-        <div className={styles.checkboxGroup}>
-          <label>
-          <input type="checkbox" className={styles.checkbox} 
-              checked={adminFormData.certifyException} 
-              onChange={(e) => this.setState({ adminFormData: { ...adminFormData, certifyException: e.target.checked } })}
-            />
-            I have reviewed the LHRC Position Reimbursement & Status Report and I certify that all data except the employee / position information noted on the attached Reconciliation Summary Report.
-          </label>
-        </div>
-  
         <p>
-          By signing this report, I certify that the information has been reconciled between the Payroll system and Local HR Connect (LHRC). All reconciling differences have been identified and are reflected on the attached Reconciliation Summary Report. Upon request, explanations and supporting documentation for reconciling items are available for review.
+          Check the appropriate box (double-click the box for selection
+          options):
         </p>
-  
+
+        <div className={styles.checkboxGroup}>
+          <label>
+            <input
+              type="checkbox"
+              className={styles.checkbox}
+              checked={adminFormData.certifyAccurate}
+              disabled={!isAdmin} // Disable if not an admin
+              onChange={(e) =>
+                this.setState({
+                  adminFormData: {
+                    ...adminFormData,
+                    certifyAccurate: e.target.checked,
+                  },
+                })
+              }
+            />
+            I have reviewed the LHRC Position Reimbursement & Status Report and
+            I certify that it is accurate.
+          </label>
+        </div>
+
+        <div className={styles.checkboxGroup}>
+          <label>
+            <input
+              type="checkbox"
+              className={styles.checkbox}
+              checked={adminFormData.certifyException}
+              disabled={!isAdmin} // Disable if not an admin
+              onChange={(e) =>
+                this.setState({
+                  adminFormData: {
+                    ...adminFormData,
+                    certifyException: e.target.checked,
+                  },
+                })
+              }
+            />
+            I have reviewed the LHRC Position Reimbursement & Status Report and
+            I certify that all data except the employee / position information
+            noted on the attached Reconciliation Summary Report.
+          </label>
+        </div>
+
+        <p>
+          By signing this report, I certify that the information has been
+          reconciled between the Payroll system and Local HR Connect (LHRC). All
+          reconciling differences have been identified and are reflected on the
+          attached Reconciliation Summary Report. Upon request, explanations and
+          supporting documentation for reconciling items are available for
+          review.
+        </p>
+
         <hr />
-  
+
         {/* Administrator Signature Section */}
         <h4>Completed by LDSS Office Manager or LHRC Administrator</h4>
         <div className={styles.formGroup}>
           <label>Print Name:</label>
-          <input type="text" className={styles.formInput} value={adminFormData.printName}
-            onChange={(e) => this.setState({ adminFormData: { ...adminFormData, printName: e.target.value } })} 
+          <input
+            type="text"
+            className={styles.formInput}
+            value={adminFormData.adminPrintName}
+            onChange={(e) =>
+              this.setState({
+                adminFormData: {
+                  ...adminFormData,
+                  adminPrintName: e.target.value,
+                },
+              })
+            }
+            disabled
           />
         </div>
         {/* <button disabled={true} className={styles.submitButton}>Submit</button> */}
       </div>
     );
   };
-    
-  private renderAdminForm = (): JSX.Element => {
-    const { isSaving, saveStatus } = this.state;
-    return (
-      <div className={styles.formContainer}>        
-        <div className={styles.formTitle}>Local HR Connect (LHRC) Certification Report - Admin</div>
-        {this.renderForm()} 
 
-        <button className={styles.saveButton} onClick={this.saveAdminFormToSharePoint} disabled={isSaving}>
-          {isSaving ? "Saving..." : "Save to SharePoint"}
-        </button>  
-        
+  private renderAdminForm = (): JSX.Element => {
+    const { isSaving, saveStatus, isAdmin } = this.state;
+
+    return (
+      <div className={styles.formContainer}>
+        <div className={styles.formTitle}>
+          Local HR Connect (LHRC) Certification Report - Admin
+        </div>
+        {this.renderForm()}
+
         {saveStatus && <p className={styles.statusMessage}>{saveStatus}</p>}
+        <button
+          className={styles.saveButton}
+          onClick={this.saveAdminFormToSharePoint}
+          disabled={isSaving || !isAdmin} // Disable if not an admin
+        >
+          {isSaving ? "Submitting..." : "Submit"}
+        </button>
       </div>
     );
   };
-  
+
   private renderDirectorForm = (): JSX.Element => {
+    const { isSaving, saveStatus, isDirector, adminFormData } = this.state;
     return (
-      <div className={styles.formContainer}>        
-        <div className={styles.formTitle}>Local HR Connect (LHRC) Certification Report - Director</div>
+      <div className={styles.formContainer}>
+        <div className={styles.formTitle}>
+          Local HR Connect (LHRC) Certification Report - Director
+        </div>
         {this.renderForm()} {/* Reuse the same form */}
-
         <hr />
-
         {/* Director Signature Section */}
         <h4>Reviewed by LDSS Director or Assistant Director</h4>
         <div className={styles.formGroup}>
           <label>Print Name: </label>
-          <input type="text" className={styles.formInput} placeholder="Enter Name" />
+          <input
+            type="text"
+            className={styles.formInput}
+            value={adminFormData.directorPrintName}
+            disabled
+          />
+          <br />
+          <label>Provide Comment: </label>
+          <textarea
+            className={styles.formTextarea}
+            placeholder="Enter Comment"
+            value={adminFormData.directorComment}
+            disabled={!isDirector}
+            onChange={(e) =>
+              this.setState({
+                adminFormData: {
+                  ...adminFormData,
+                  directorComment: e.target.value,
+                },
+              })
+            }
+          />
+
+          {/* Status Message */}
+          {saveStatus && <p className={styles.statusMessage}>{saveStatus}</p>}
+          {/* Action Buttons */}
+          <div className={styles.buttonContainer}>
+            <button
+              className={styles.approveButton}
+              onClick={() => this.handleDirectorApproval(true)}
+              disabled={!isDirector || isSaving} // Disabled if not a Director or Approving
+            >
+              Approve
+            </button>
+
+            <button
+              className={styles.rejectButton}
+              onClick={() => this.handleDirectorApproval(false)}
+              disabled={!isDirector || isSaving} // Disabled if not a Director or rejecting
+            >
+              Reject
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -738,37 +1156,80 @@ export default class SpDescrepency extends React.Component<
 
   private saveAdminFormToSharePoint = async (): Promise<void> => {
     const { adminFormData, selectedAgency } = this.state;
-    if (!adminFormData.certifyAccurate || !adminFormData.fips || !adminFormData.certifyException || !adminFormData.printName) {
+
+    if (
+      !adminFormData.certifyAccurate ||
+      !adminFormData.fips ||
+      !adminFormData.certifyException ||
+      !adminFormData.adminPrintName
+    ) {
       this.setState({ saveStatus: "Please fill all fields before saving." });
       return;
     }
-  
+
     // Get current month and year
     const currentDate = new Date();
     const currentMonth = String(currentDate.getMonth() + 1).padStart(2, "0"); // "01" to "12"
     const currentYear = String(currentDate.getFullYear());
-  
-    const listName = "CertificationReportData"; // Replace with your SharePoint list name
+
+    const listName = "CertificationReportData"; // SharePoint list name
     this.setState({ isSaving: true, saveStatus: "Saving to SharePoint..." });
-  
+
     try {
-      await sp.web.lists.getByTitle(listName).items.add({
-        Title: selectedAgency,
-        field_2: currentMonth,
-        field_3: currentYear,
-        field_1: adminFormData.fips,
-        CertifyAccurate: adminFormData.certifyAccurate,
-        CertifyException: adminFormData.certifyException,
-        //field_7: adminFormData.certifiedBy,
-        field_7: currentDate, // Adding timestamp
-        field_8: true, // Assuming checkbox values are boolean
-        AdminPrintName: adminFormData.printName,
-      });
-  
-      this.setState({ isSaving: false, saveStatus: "Admin form saved successfully!" });
+      const list = sp.web.lists.getByTitle(listName);
+
+      // Check if an entry already exists for the same agency, month, and year
+      const existingItems = await list.items
+        .filter(
+          `Title eq '${selectedAgency}' and field_1 eq '${adminFormData.fips}' and field_2 eq '${currentMonth}' and field_3 eq '${currentYear}'`
+        )
+        .top(1)
+        .get();
+
+      if (existingItems.length > 0) {
+        // Record found - Update existing entry
+        const existingItemId = existingItems[0].Id;
+        await list.items.getById(existingItemId).update({
+          Title: selectedAgency,
+          field_2: currentMonth,
+          field_3: currentYear,
+          field_1: adminFormData.fips,
+          CertifyAccurate: adminFormData.certifyAccurate,
+          CertifyException: adminFormData.certifyException,
+          field_7: currentDate, // Timestamp update
+          field_8: true,
+          AdminPrintName: adminFormData.adminPrintName,
+        });
+
+        this.setState({
+          isSaving: false,
+          saveStatus: "Admin form updated successfully!",
+        });
+      } else {
+        // No record found - Insert a new entry
+        await list.items.add({
+          Title: selectedAgency,
+          field_2: currentMonth,
+          field_3: currentYear,
+          field_1: adminFormData.fips,
+          CertifyAccurate: adminFormData.certifyAccurate,
+          CertifyException: adminFormData.certifyException,
+          field_7: currentDate, // Timestamp
+          field_8: true, // Assuming checkbox values are boolean
+          AdminPrintName: adminFormData.adminPrintName,
+        });
+
+        this.setState({
+          isSaving: false,
+          saveStatus: "Admin form submitted successfully!",
+        });
+      }
     } catch (error) {
-      console.error("Error saving admin form:", error);
-      this.setState({ isSaving: false, saveStatus: "Error saving. Please try again." });
+      console.error("Error submitting admin form:", error);
+      this.setState({
+        isSaving: false,
+        saveStatus: "Error submitting, please try again.",
+      });
     }
   };
 
@@ -1023,10 +1484,14 @@ export default class SpDescrepency extends React.Component<
           ))}
         </tbody>
         {/* Save to SharePoint Button */}
-        <button className={styles.saveButton} onClick={() => this.saveDiscrepancyReportToSharePoint(descrepencyReport)}
+        <button
+          className={styles.saveButton}
+          onClick={() =>
+            this.saveDiscrepancyReportToSharePoint(descrepencyReport)
+          }
           disabled={isSaving} // Disable while saving
         >
-          {isSaving ? "Saving..." : "Save to SharePoint"}
+          {isSaving ? "Saving..." : "Submit"}
         </button>
 
         {/* Show status message after saving */}
@@ -1038,20 +1503,20 @@ export default class SpDescrepency extends React.Component<
   private handleDiscrepancyClick = (discrepancyName: string): void => {
     const { masterData, validAgencyData } = this.state; // Get master data from state
     let filteredData: IExcelRow[] = [];
-    
-    switch (discrepancyName) {      
+
+    switch (discrepancyName) {
       case "LetsPositions":
         filteredData = masterData; //.filter(row => row.EmployeeStatus === "Active"); // Example filter
         break;
-  
+
       case "VacantLetsPositions":
-        filteredData = masterData.filter(row => row.EmployeeFirstName); // Filter vacant positions
+        filteredData = masterData.filter((row) => row.EmployeeFirstName); // Filter vacant positions
         break;
 
       case "FilledLetsPositions":
-        filteredData = masterData.filter(row => !row.EmployeeFirstName); // Filter vacant positions
+        filteredData = masterData.filter((row) => !row.EmployeeFirstName); // Filter vacant positions
         break;
-  
+
       case "EmployeeLetsNotFoundLocal":
         filteredData = masterData; //.filter(row => row.EmployeeStatus === "Not Found");
         break;
@@ -1059,29 +1524,33 @@ export default class SpDescrepency extends React.Component<
       case "VacantPositionsLets":
         filteredData = masterData; //.filter(row => row.EmployeeStatus === "Not Found");
         break;
-      
+
       case "NumberofLocalPositions":
-          filteredData = validAgencyData; //.filter(row => row.EmployeeStatus === "Not Found");
-          break;
-      
+        filteredData = validAgencyData; //.filter(row => row.EmployeeStatus === "Not Found");
+        break;
+
       case "NumberOfVacantLocalPositions":
-        filteredData = validAgencyData.filter((agency) => agency.EmployeeFirstName);
+        filteredData = validAgencyData.filter(
+          (agency) => agency.EmployeeFirstName
+        );
         break;
-      
+
       case "NumberOfFilledLocalPositions":
-        filteredData = validAgencyData.filter((agency) => !agency.EmployeeFirstName);
+        filteredData = validAgencyData.filter(
+          (agency) => !agency.EmployeeFirstName
+        );
         break;
-      
+
       default:
         filteredData = [];
     }
-    
+
     this.setState({
       selectedDiscrepancy: discrepancyName,
       filteredDiscrepancyData: filteredData,
       activeTab: "DiscrepancyDetails",
     });
-  };  
+  };
 
   private handleShowDetailsClick = (item: IExcelRow): void => {
     //console.log("Button clicked for row:", item.BureauFIPS);
@@ -1153,7 +1622,7 @@ export default class SpDescrepency extends React.Component<
   private closePopup = (): void => {
     this.setState({ selectedRow: undefined });
   };
-  
+
   private readExcel = (file: File): Promise<IExcelRow[]> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -1229,11 +1698,14 @@ export default class SpDescrepency extends React.Component<
           </div>
         </>
       );
-    }    
+    }
     return null;
   };
 
-  private validateExcelData(data: IExcelRow[]): { validRows: IExcelRow[]; invalidRows: IExcelRow[] } {    
+  private validateExcelData(data: IExcelRow[]): {
+    validRows: IExcelRow[];
+    invalidRows: IExcelRow[];
+  } {
     const validRows: IExcelRow[] = [];
     const invalidRows: IExcelRow[] = [];
 
@@ -1278,27 +1750,51 @@ export default class SpDescrepency extends React.Component<
   };
 
   private saveDataToList = async (data: IExcelRow[]): Promise<void> => {
-    const listName = "PRS_User_Data"; // Replace with your list name
+    const listName = "PRS_User_Data"; // SharePoint List Name
     const list = sp.web.lists.getByTitle(listName);
 
     try {
-      for (const item of data) {
-        await list.items.add({
-          Agency: this.state.selectedAgency || "",
-          Title: String(item.BureauFIPS) || "",
-          field_1: String(item.PayrollPositionNumber) || "", //PayrollPositionNumber
-          field_2: item.JobTitle || "", //JobTitle
-          field_3: item.StateJobTitle || "", //StateJobTitle
-          field_4: item.EmployeeLastName || "", //EmployeeLastName
-          field_5: item.EmployeeFirstName || "", //EmployeeFirstName
-          field_6: item.EmployeeMiddleInitial || "", //EmployeeMiddleInitial
-          field_7: String(item.Salary) || "", //Salary
-          field_8: String(item.FTE) || "", //FTE
-          field_9: String(item.ReimbursementPercentage) || "", //ReimbursementPercentage
-        });
+      if (!this.state.selectedAgency) {
+        throw new Error("No agency selected.");
       }
+
+      // Step 1: Delete existing records for the selected agency
+      const existingItems = await list.items
+        .filter(`Agency eq '${this.state.selectedAgency}'`)
+        .get();
+
+      if (existingItems.length > 0) {
+        await Promise.all(
+          existingItems.map(async (item) => {
+            await list.items.getById(item.Id).delete();
+          })
+        );
+        console.log(
+          `Deleted ${existingItems.length} existing records for agency: ${this.state.selectedAgency}`
+        );
+      }
+
+      // Step 2: Insert new records
+      await Promise.all(
+        data.map(async (item) => {
+          await list.items.add({
+            Agency: this.state.selectedAgency || "",
+            Title: String(item.BureauFIPS) || "",
+            field_1: String(item.PayrollPositionNumber) || "", // PayrollPositionNumber
+            field_2: item.JobTitle || "", // JobTitle
+            field_3: item.StateJobTitle || "", // StateJobTitle
+            field_4: item.EmployeeLastName || "", // EmployeeLastName
+            field_5: item.EmployeeFirstName || "", // EmployeeFirstName
+            field_6: item.EmployeeMiddleInitial || "", // EmployeeMiddleInitial
+            field_7: String(item.Salary) || "", // Salary
+            field_8: String(item.FTE) || "", // FTE
+            field_9: String(item.ReimbursementPercentage) || "", // ReimbursementPercentage
+          });
+        })
+      );
+
       console.log(
-        `Successfully added ${data.length} items to the "${listName}" list.`
+        `Inserted ${data.length} new records for agency: ${this.state.selectedAgency}`
       );
     } catch (error) {
       throw new Error(`Failed to save data to list "${listName}". ${error}`);
@@ -1324,29 +1820,36 @@ export default class SpDescrepency extends React.Component<
         </header>
 
         <main className={styles.mainContent}>
-          <div className={styles.uploadSection}>            
-            {/* Conditionally Render Agency Dropdown */}
-            {this.renderAgencyDropdown()}
+          {/* Show top controls if user is an Admin */}
+          {(this.state.isAdmin || this.state.isHR) && (
+            <div className={styles.uploadSection}>
+              {/* Conditionally Render Agency Dropdown */}
+              {this.state.isHR && this.renderAgencyDropdown()}
 
-            <input
-              type="file"
-              accept=".xlsx"
-              disabled={this.state.masterData.length < 1}
-              className={styles.fileInput}
-              onChange={this.handleFileUpload}
-            />
-            <button
-              className={styles.uploadButton}
-              disabled={
-                !this.state.selectedFile ||
-                this.state.masterData.length < 1 ||
-                this.state.isLoading
-              }
-              onClick={this.handleValidateDescrepencyClick}
-            >
-              Show Report
-            </button>
-          </div>
+              {this.state.isAdmin && (
+                <>
+                  <input
+                    type="file"
+                    accept=".xlsx"
+                    disabled={this.state.masterData.length < 1}
+                    className={styles.fileInput}
+                    onChange={this.handleFileUpload}
+                  />
+                  <button
+                    className={styles.uploadButton}
+                    disabled={
+                      !this.state.selectedFile ||
+                      this.state.masterData.length < 1 ||
+                      this.state.isLoading
+                    }
+                    onClick={this.handleValidateDescrepencyClick}
+                  >
+                    Show Report
+                  </button>
+                </>
+              )}
+            </div>
+          )}
 
           <div className={styles.tabContainer}>
             <button
@@ -1383,14 +1886,19 @@ export default class SpDescrepency extends React.Component<
             </button>
             {/* Show Admin tab if user is an Admin or HR */}
             {(this.state.isAdmin || this.state.isHR) && (
-              <button className={this.state.activeTab === "Admin" ? styles.activeTab : styles.tab }
+              <button
+                className={
+                  this.state.activeTab === "Admin"
+                    ? styles.activeTab
+                    : styles.tab
+                }
                 onClick={() => this.setState({ activeTab: "Admin" })}
               >
                 Admin Tab
               </button>
             )}
             {/* Show Director Tab only if user is authorized */}
-            {this.state.isDirector || this.state.isHR && (
+            {(this.state.isDirector || this.state.isHR) && (
               <button
                 className={
                   this.state.activeTab === "Director"
@@ -1412,13 +1920,20 @@ export default class SpDescrepency extends React.Component<
               />
             ) : (
               <>
-                {this.state.activeTab === "MasterData" && this.renderMasterDataGrid()}
-                {this.state.activeTab === "DiscrepancyReport" && this.renderDiscrepancyReport()}
-                {this.state.activeTab === "DiscrepancyDetails" && this.renderSelectedDiscrepancyDetails()}
+                {this.state.activeTab === "MasterData" &&
+                  this.renderMasterDataGrid()}
+                {this.state.activeTab === "DiscrepancyReport" &&
+                  this.renderDiscrepancyReport()}
+                {this.state.activeTab === "DiscrepancyDetails" &&
+                  this.renderSelectedDiscrepancyDetails()}
                 {/* Only render Admin Tab if user is Admin or HR */}
-                {(this.state.isAdmin || this.state.isHR) && this.state.activeTab === "Admin" && this.renderAdminForm()}
+                {(this.state.isAdmin || this.state.isHR) &&
+                  this.state.activeTab === "Admin" &&
+                  this.renderAdminForm()}
                 {/* Only render Director Tab if user is Director or HR */}
-                {(this.state.isDirector || this.state.isHR) && this.state.activeTab === "Director" && this.renderDirectorForm()}
+                {(this.state.isDirector || this.state.isHR) &&
+                  this.state.activeTab === "Director" &&
+                  this.renderDirectorForm()}
               </>
             )}
           </div>

@@ -12,6 +12,7 @@
   padding: 10px;
   background-color: #0078d4;
   color: white;
+  margin-bottom: 5px;
 }
 
 .headerTitle {
@@ -64,7 +65,8 @@
 }
 
 .fileInput {
-  margin-top: 10px;
+  /*margin-top: 10px;*/
+  margin-left: 1px;
 }
 
 .uploadButton {
@@ -283,6 +285,7 @@ tbody tr:last-child td {
   justify-content: flex-start;
   border-bottom: 2px solid #ccc;
   margin-bottom: 5px;
+  margin-top: 5px;
 }
 
 .tab {
@@ -473,7 +476,6 @@ tbody tr:last-child td {
 }
 
 /*Saving Descrepency data to SharePoint*/
-
 .saveButton {
   background-color: #0078d4;
   color: white;
@@ -495,4 +497,73 @@ tbody tr:last-child td {
   font-size: 14px;
   font-weight: bold;
   color: #0078d4;
+}
+
+.formTextarea {
+  width: 90%;
+  height: 80px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.buttonContainer {
+  display: flex;
+  justify-content: space-between;
+  width: 50%;
+}
+
+.approveButton,
+.rejectButton {
+  padding: 10px 15px;
+  font-size: 14px;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s ease-in-out;
+  width: 120px;
+}
+
+.approveButton:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+.rejectButton:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.approveButton {
+  background-color: #4caf50; /* Green */
+  color: white;
+}
+
+.rejectButton {
+  background-color: #d9534f; /* Red */
+  color: white;
+}
+
+.paginationContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+.paginationButton {
+  background: #0078d4;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  margin: 0 5px;
+  cursor: pointer;
+}
+.paginationButton:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+.pageInfo {
+  margin: 0 10px;
+  font-weight: bold;
 }
