@@ -567,3 +567,16 @@ tbody tr:last-child td {
   margin: 0 10px;
   font-weight: bold;
 }
+
+.exportLink {
+  color: #0078d4;
+  text-decoration: underline;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+.exportLink:hover {
+  text-decoration: none;
+  color: #005a9e;
+}

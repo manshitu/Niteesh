@@ -1,18 +1,7 @@
-import { WebPartContext } from "@microsoft/sp-webpart-base";
-export interface ISpDescrepencyProps {
-  context: WebPartContext; // Added context property
-  description: string;
-  isDarkTheme: boolean;
-  environmentMessage: string;
-  hasTeamsContext?: boolean;
-  userDisplayName: string;
-}
-
 export interface ISpDescrepencyState {
   style: string;
   uploadStatus: string;
   selectedFile?: File;
-  agencyOptions: { key: string; text: string }[];
   isLoading: boolean;
   errorMessage: string;
   selectedAgency?: string;
@@ -73,7 +62,6 @@ export interface IDiscrepancyResult {
   NumberofLocalPositions: number;
   NumberOfVacantLocalPositions: number;
   NumberOfFilledLocalPositions: number;
-  NumberOfEmployeesInLocalNotFoundInLets: number;
   NumberOfEmployeeWithSignificantSalary: number;
   NumberOfLocalPositionsInLETS: number;
   LetsLocalPositionBlank: number;

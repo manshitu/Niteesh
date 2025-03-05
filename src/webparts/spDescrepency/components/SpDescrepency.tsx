@@ -1,15 +1,17 @@
 import * as React from "react";
 import styles from "./SpDescrepency.module.scss";
-import type { ISpDescrepencyProps } from "./ISpDescrepencyProps";
+import type { ISpDescrepencyState, IExcelRow, IDiscrepancyResult, ISpDescrepencyProps } from "./ISpDescrepencyProps";
 import { sp } from "@pnp/sp/presets/all";
 import { read, utils } from "xlsx";
+import * as XLSX from "xlsx";
+
 import {
   Spinner,
   SpinnerSize,
   //MessageBar,
   //MessageBarType,
   Dropdown,
-  IDropdownOption,
+  //IDropdownOption,
   //Dialog,
   //DialogType,
   DetailsList,
@@ -18,96 +20,17 @@ import {
 import { IWebPartContext } from "@microsoft/sp-webpart-base";
 import { SelectionMode } from "@fluentui/react";
 
-interface ISpDescrepencyState {
-  style: string;
-  uploadStatus: string;
-  selectedFile: File | undefined;
-  isLoading: boolean;
-  errorMessage: string;
-  selectedAgency: string | undefined;
-  masterData: IExcelRow[];
-  validAgencyData: IExcelRow[];
-  currentPage: number;
-  recordsPerPage: number;
-  isPopupVisible: boolean;
-  selectedRow: IExcelRow | undefined;
-  descrepencyReport: IDiscrepancyResult[];
-  activeTab: 
-    | "MasterData"
-    | "DiscrepancyReport"
-    | "DiscrepancyDetails"
-    | "Admin"
-    | "Director";
-  selectedDiscrepancy?: string | undefined; // Stores selected discrepancy for Tab 3
-  filteredDiscrepancyData: IExcelRow[]; // Stores the filtered data for details tab
-  isAdmin: boolean;
-  isDirector: boolean;
-  isHR: boolean;
-  showAgencyDropdown: boolean; // Determines whether to show the dropdown
-  isSaving: boolean; // Track save operation
-  saveStatus: string; // Show success/error message
-  userLocalityName: string; // Stores user's locality name
-  userFIPS: string; // Stores user's FIPS code
-  adminFormData: {
-    // Stores Admin tab form data
-    fips: string;
-    month: string;
-    certifiedCycle: string;
-    certifyAccurate: boolean;
-    certifyException: boolean;
-    adminPrintName: string;
-    directorPrintName: string;
-    directorComment: string;
-  };
-}
-
-interface IExcelRow {
-  BureauFIPS?: string;
-  PayrollPositionNumber?: string;
-  JobTitle?: string;
-  StateJobTitle?: string;
-  EmployeeLastName?: string;
-  EmployeeFirstName?: string;
-  EmployeeMiddleInitial?: string;
-  Salary?: string;
-  FTE?: string;
-  ReimbursementPercentage?: string;
-}
-
-interface IDiscrepancyResult {
-  LetsPositions: number;
-  VacantLetsPositions: number;
-  FilledLetsPositions: number;
-  EmployeeLetsNotFoundLocal: number;
-  VacantPositionsLets: number;
-  NumberofLocalPositions: number;
-  NumberOfVacantLocalPositions: number;
-  NumberOfFilledLocalPositions: number;
-  NumberOfEmployeeWithSignificantSalary: number;
-  NumberOfLocalPositionsInLETS: number;
-  LetsLocalPositionBlank: number;
-  NumberOfEmployeeWithPastDueProbation: number;
-  NumberOfEmployeeWithPastDueAnnual: number;
-  NumberOfEmployeeInExpiredPositions: number;
-  NumberOfPositionsWithInvalidRSC: number;
-}
-
 export default class SpDescrepency extends React.Component<
   ISpDescrepencyProps,
   ISpDescrepencyState
 > {
-  private agencyOptions: IDropdownOption[] = [
-    { key: "01", text: "Agency 1" },
-    { key: "02", text: "Agency 2" },
-    { key: "03", text: "Agency 3" },
-  ];
-
   constructor(props: ISpDescrepencyProps) {
     super(props);
     this.state = {
       style: "",
       uploadStatus: "",
       selectedFile: undefined,
+      agencyOptions: [],
       isLoading: false,
       errorMessage: "",
       selectedAgency: undefined,
@@ -221,12 +144,9 @@ export default class SpDescrepency extends React.Component<
 
         this.setState(
           {
-            isAdmin: isAdmin, //userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail,
-            //isAdmin: (userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail) || (userRecord.SecondaryAdminEmail?.toLowerCase() === currentUserEmail),
+            isAdmin: isAdmin, //userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail,            
             isDirector: isDirector, //!userRecord.DirectorAsstDirectorEmail && userRecord.DirectorAsstDirectorEmail?.toLowerCase() === currentUserEmail,
-            isHR: isHR, // Check if user is HR
-            //agencyName: defaultAgency, // Get agency name (Title column)
-            //selectedAgency: '02',
+            isHR: isHR, // Check if user is HR            
             selectedAgency: defaultAgency, // Set default agency
             showAgencyDropdown: isHR, // Show dropdown only if HR
             userLocalityName: userRecord.field_1 || "", // Get locality name
@@ -238,6 +158,11 @@ export default class SpDescrepency extends React.Component<
             },
           },
           () => {
+            if(isHR)
+            {
+              // eslint-disable-next-line no-void
+              void this.fetchAgencyOptions();
+            }
             if (defaultAgency) {
               // eslint-disable-next-line no-void
               void this.fetchMasterAgencyData(defaultAgency); // Auto-load data if not HR
@@ -249,6 +174,28 @@ export default class SpDescrepency extends React.Component<
       console.error("Error fetching user access:", error);
     }
   };
+
+  private async fetchAgencyOptions(): Promise<void> {
+    const listName = "LDSSProfileSummary";
+    try {
+      const items = await sp.web.lists
+        .getByTitle(listName)
+        .items
+        .select("Title", "field_1")        
+        .get();
+
+      // Transform data into dropdown format
+      const agencyOptions = items.map((item) => ({
+        key: item.Title, // Value for dropdown
+        text: `${item.Title} - ${item.field_1}`, // Display text
+      }));
+  
+      // Update state with agency options
+      this.setState({ agencyOptions: agencyOptions });
+    } catch (error) {
+      console.error("Error fetching agency options:", error);
+    }
+  }
 
   private handleFileUpload = (
     event: React.ChangeEvent<HTMLInputElement>
@@ -317,10 +264,7 @@ export default class SpDescrepency extends React.Component<
       });
 
       // Calculating Discrepancies based on userData and masterData
-      const discrepancyResult = this.calculateDiscrepancies(
-        validRows,
-        masterData
-      );
+      const discrepancyResult = this.calculateDiscrepancies(validRows, masterData);
 
       // Display the discrepancy report
       this.displayDiscrepancyReport([discrepancyResult]);
@@ -339,29 +283,22 @@ export default class SpDescrepency extends React.Component<
     }
   };
 
-  private calculateDiscrepancies = (
-    validRows: IExcelRow[],
-    masterData: IExcelRow[]
-  ): IDiscrepancyResult => {
+  private calculateDiscrepancies = (validRows: IExcelRow[], masterData: IExcelRow[]): IDiscrepancyResult => {
     const letsPositions = masterData.length;
-    const vacantLetsPositions = masterData.filter(
-      (master) => master.EmployeeFirstName
-    ).length;
-    const filledLetsPositions = masterData.filter(
-      (master) => !master.EmployeeFirstName
-    ).length;
+    const vacantLetsPositions = masterData.filter((master) => master.EmployeeFirstName).length;
+    const filledLetsPositions = masterData.filter((master) => !master.EmployeeFirstName).length;
 
-    const employeeLetsNotFoundLocal = 0; //validRows.filter((agency) => !agency.EmployeeFirstName).length;
-    const vacantPositionsLets = 0; //masterData.filter((master) => !master.EmployeeFirstName).length;
-
+    const employeeLetsNotFoundLocal = masterData.filter((master) => master.EmployeeFirstName && // Ensure master data has an employee
+        !validRows.some((agency) => agency.EmployeeFirstName === master.EmployeeFirstName)).length; // Check if missing in validRows    
+    const vacantPositionsLets = validRows.filter((agency) => agency.EmployeeFirstName && // Ensure local data has an employee
+        !masterData.some((master) => master.EmployeeFirstName === agency.EmployeeFirstName)).length; // Check if missing in masterData    
     const numberofLocalPositions = validRows.length;
-    const numberOfVacantLocalPositions = validRows.filter(
-      (agency) => agency.EmployeeFirstName
-    ).length;
-    const numberOfFilledLocalPositions = validRows.filter(
-      (agency) => !agency.EmployeeFirstName
-    ).length;
 
+    const numberOfVacantLocalPositions = validRows.filter((agency) => agency.EmployeeFirstName).length;
+    const numberOfFilledLocalPositions = masterData.filter((master) => master.EmployeeFirstName).length;
+    const numberOfEmployeesInLocalNotFoundInLets = validRows.filter((agency) => agency.EmployeeFirstName && // Ensure valid employee entry
+        !masterData.some((master) => master.EmployeeFirstName === agency.EmployeeFirstName)).length; // Check if missing in masterData
+    
     const numberOfEmployeeWithSignificantSalary = 0;
     const numberOfLocalPositionsInLETS = 0;
     const letsLocalPositionBlank = 0;
@@ -379,21 +316,18 @@ export default class SpDescrepency extends React.Component<
       NumberofLocalPositions: numberofLocalPositions,
       NumberOfVacantLocalPositions: numberOfVacantLocalPositions,
       NumberOfFilledLocalPositions: numberOfFilledLocalPositions,
-      NumberOfEmployeeWithSignificantSalary:
-        numberOfEmployeeWithSignificantSalary,
+      NumberOfEmployeesInLocalNotFoundInLets: numberOfEmployeesInLocalNotFoundInLets,
+      NumberOfEmployeeWithSignificantSalary: numberOfEmployeeWithSignificantSalary,
       NumberOfLocalPositionsInLETS: numberOfLocalPositionsInLETS,
       LetsLocalPositionBlank: letsLocalPositionBlank,
-      NumberOfEmployeeWithPastDueProbation:
-        numberOfEmployeeWithPastDueProbation,
+      NumberOfEmployeeWithPastDueProbation: numberOfEmployeeWithPastDueProbation,
       NumberOfEmployeeWithPastDueAnnual: numberOfEmployeeWithPastDueAnnual,
       NumberOfEmployeeInExpiredPositions: numberOfEmployeeInExpiredPositions,
       NumberOfPositionsWithInvalidRSC: numberOfPositionsWithInvalidRSC,
     };
   };
 
-  private displayDiscrepancyReport = (
-    discrepancies: IDiscrepancyResult[]
-  ): void => {
+  private displayDiscrepancyReport = (discrepancies: IDiscrepancyResult[]): void => {
     if (!discrepancies) {
       alert("No discrepancies found. Data matches the master database.");
       return;
@@ -467,7 +401,6 @@ export default class SpDescrepency extends React.Component<
       const currentDate = new Date();
       const currentMonth = String(currentDate.getMonth() + 1).padStart(2, "0"); // "01" to "12"
       const currentYear = String(currentDate.getFullYear());
-
       // Query SharePoint to get admin form data for the current month and agency
       const items = await sp.web.lists
         .getByTitle(listName)
@@ -513,13 +446,12 @@ export default class SpDescrepency extends React.Component<
   };
 
   private renderAgencyDropdown = (): JSX.Element | null => {
-    if (!this.state.showAgencyDropdown) return null;
-
+    if (!this.state.showAgencyDropdown) return null;    
     return (
       <Dropdown
         label="Select Agency Name"
         placeholder="Select an agency"
-        options={this.agencyOptions}
+        options={this.state.agencyOptions}
         onChange={(_, option) => this.handleAgencyChange(option?.key as string)}
         selectedKey={this.state.selectedAgency}
         className={styles.dropdown}
@@ -594,6 +526,38 @@ export default class SpDescrepency extends React.Component<
         saveStatus: "Error saving, please try again.",
       });
     }
+  };
+
+  private exportDiscrepancyToExcel = (): void => {
+    const { descrepencyReport, masterData } = this.state; // Tab 2 and Tab 3 data
+
+    if (descrepencyReport.length === 0 && masterData.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    const wb = XLSX.utils.book_new(); // Create a new workbook
+
+    // ✅ Transpose descrepencyReport: Convert Columns → Rows
+    if (descrepencyReport.length > 0) {
+      const firstRow = descrepencyReport[0]; // Get the first row
+      
+      const transposedData = (Object.keys(firstRow) as (keyof IDiscrepancyResult)[]).map((key) => {
+        return [key, firstRow[key]]; // ✅ Type-safe indexing
+      });
+
+      const ws1 = XLSX.utils.aoa_to_sheet(transposedData); // Convert array to sheet
+      XLSX.utils.book_append_sheet(wb, ws1, "Discrepancy Report");
+    }
+
+    // Convert detailData (Tab 3) to a worksheet
+    if (masterData.length > 0) {
+      const ws2 = XLSX.utils.json_to_sheet(masterData);
+      XLSX.utils.book_append_sheet(wb, ws2, "Detail Data");
+    }
+
+    // Export the workbook
+    XLSX.writeFile(wb, "Discrepancy_Report.xlsx");
   };
 
   public renderMasterDataGrid(): JSX.Element {
@@ -747,7 +711,7 @@ export default class SpDescrepency extends React.Component<
         },
       ];
     }
-
+    
     return (
       <div className={styles.tabContent}>
         <h3>Details for {selectedDiscrepancy}</h3>
@@ -883,8 +847,8 @@ export default class SpDescrepency extends React.Component<
           VacantPositionsLets: item.field_8,
           NumberofLocalPositions: item.field_9,
           NumberOfVacantLocalPositions: item.field_10,
-          NumberOfFilledLocalPositions: item.field_11,
-          //NumberOfEmployeesInLocalNotFoundInLets: Number(item.NumberOfEmployeesInLocalNotFoundInLets) || 0
+          NumberOfFilledLocalPositions: item.field_11,          
+          NumberOfEmployeesInLocalNotFoundInLets: Number(item.NumberOfEmployeesInLocalNotFoundInLets) || 0,
           NumberOfEmployeeWithSignificantSalary: item.field_12,
           NumberOfLocalPositionsInLETS: item.field_13,
           LetsLocalPositionBlank: item.field_14,
@@ -1241,6 +1205,17 @@ export default class SpDescrepency extends React.Component<
     }
 
     return (
+      <div>
+      <a
+          href="#"
+          className={styles.exportLink}
+          onClick={(e) => {
+            e.preventDefault();
+            this.exportDiscrepancyToExcel();
+          }}
+        >
+          📥 Export to Excel
+        </a>
       <table className={styles.reportTable}>
         <thead>
           <tr>
@@ -1497,6 +1472,7 @@ export default class SpDescrepency extends React.Component<
         {/* Show status message after saving */}
         {saveStatus && <p className={styles.statusMessage}>{saveStatus}</p>}
       </table>
+      </div>
     );
   };
 
@@ -1914,10 +1890,7 @@ export default class SpDescrepency extends React.Component<
 
           <div className={styles.tabContent}>
             {this.state.isLoading ? (
-              <Spinner
-                size={SpinnerSize.large}
-                label="Please wait while loading data..."
-              />
+              <Spinner size={SpinnerSize.large} label="Please wait while loading data..." />
             ) : (
               <>
                 {this.state.activeTab === "MasterData" &&
@@ -1940,20 +1913,6 @@ export default class SpDescrepency extends React.Component<
 
           {/* Popup for Row Details */}
           {this.renderPopup()}
-
-          {/* 
-          {this.state.isLoading && (
-            <Spinner size={SpinnerSize.medium} label="Processing..." />
-          )}
-          
-          {this.state.errorMessage && (
-            <MessageBar messageBarType={MessageBarType.error}>
-              {this.state.errorMessage}
-            </MessageBar>
-          )}
-          
-          <p className={this.state.style}>{this.state.uploadStatus}</p>
-          */}
         </main>
 
         <footer className={styles.footer}>
