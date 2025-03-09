@@ -39,6 +39,7 @@ export interface ISpDescrepencyState {
   saveStatus: string;
   userLocalityName: string;
   userFIPS: string;
+  allDiscrepancyData: Record<string, IExcelRow[]>; // Added allDiscrepancyData property
   adminFormData: {
     fips: string;
     month: string;
@@ -62,8 +63,17 @@ export interface IExcelRow {
   Salary?: string;
   FTE?: string;
   ReimbursementPercentage?: string;
+  ReimbursementStatusCode?: string;
+  EmployeeSalary?: string;
+  PositionTimeStatus?: string;
+  EmployeeStatus?: string;
+  DeviationCode?: string;
+  AssigPercentageTimeToPosition?: string;
+  EmployeeExpectedJobEndDate?: string;
+  RatingDate?: string;
+  ProbationExpectedEndDate?: string;
+  StatePositionNumber?: string;
 }
-
 export interface IDiscrepancyResult {
   LetsPositions: number;
   VacantLetsPositions: number;
@@ -81,4 +91,16 @@ export interface IDiscrepancyResult {
   NumberOfEmployeeWithPastDueAnnual: number;
   NumberOfEmployeeInExpiredPositions: number;
   NumberOfPositionsWithInvalidRSC: number;
+  EmployeeslistedbutNoEESalary: number;
+  EmployeeslistedButNoEETimeStatus: number;
+  PartTimeEmployeesWithSalary: number;
+  FullTimeEmployeesWithHourlyRate: number;
+  EmployeesWithDeviationCodePoint5: number;
+  EmployeesWithBlankAssignTime: number;
+  EmployeeswithBlankEmployeeStatus: number;
+}
+
+export interface IDiscrepancyData {
+  DiscrepancyName: string;
+  Count: number;
 }
