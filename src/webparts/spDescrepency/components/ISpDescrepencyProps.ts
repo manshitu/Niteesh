@@ -48,6 +48,8 @@ export interface ISpDescrepencyState {
     certifyException: boolean;
     adminPrintName: string;
     directorPrintName: string;
+    adminSignatureCompleted: boolean;
+    directorSignatureCompleted: boolean;
     directorComment: string;
   };
 }
@@ -76,8 +78,11 @@ export interface IExcelRow {
 }
 export interface IDiscrepancyResult {
   LetsPositions: number;
+  DescLetsPositions: string;
   VacantLetsPositions: number;
+  DescVacantLETSpositions: string
   FilledLetsPositions: number;
+  DescFilledLETSpositions: string;
   EmployeeLetsNotFoundLocal: number;
   VacantPositionsLets: number;
   NumberofLocalPositions: number;

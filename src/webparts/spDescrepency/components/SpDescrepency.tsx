@@ -49,6 +49,8 @@ export default class SpDescrepency extends React.Component<
         adminPrintName: "",
         directorPrintName: "",
         directorComment: "",
+        adminSignatureCompleted: false,
+        directorSignatureCompleted: false,
       },
     };
 
@@ -313,8 +315,11 @@ export default class SpDescrepency extends React.Component<
 
     return {
       LetsPositions: letsPositions,
+      DescLetsPositions: "",
       VacantLetsPositions: vacantLetsPositions,
+      DescVacantLETSpositions:"",
       FilledLetsPositions: filledLetsPositions,
+      DescFilledLETSpositions: "",
       EmployeeLetsNotFoundLocal: employeeLetsNotFoundLocal,
       VacantPositionsLets: vacantPositionsLets,
       NumberofLocalPositions: numberofLocalPositions,
@@ -432,7 +437,9 @@ export default class SpDescrepency extends React.Component<
             certifyAccurate: formData.CertifyAccurate,
             certifyException: formData.CertifyException,
             adminPrintName: formData.AdminPrintName,
+            adminSignatureCompleted: formData.field_8,
             directorPrintName: formData.DirectorPrintName,
+            directorSignatureCompleted: formData.field_11,
             directorComment: formData.DirectorComment,
           },
         });
@@ -448,6 +455,8 @@ export default class SpDescrepency extends React.Component<
             adminPrintName: currentUserName,
             directorPrintName: currentUserName,
             directorComment: "", // Default empty
+            adminSignatureCompleted: false,
+            directorSignatureCompleted: false,
           },
         });
       }
@@ -547,15 +556,30 @@ export default class SpDescrepency extends React.Component<
       return;
     }
 
+    // ✅ Define headers as per the required format
+    const headers: [string, string, string] = ["Discrepancy Name", "Count", "Description"];
+
+    // ✅ Convert descrepencyReport into the required row format
+    const tab2Data: [string, number, string][] = [];
+
+    descrepencyReport.forEach((row) => {
+      Object.keys(row).forEach((key) => {
+          // Only include discrepancy-related columns (ignore metadata)
+          if (!key.startsWith("Desc")) {
+              tab2Data.push([
+                  key, 
+                  Number(row[key as keyof IDiscrepancyResult]) || 0, // Count (Value)
+                  String(row[`Desc${key}` as keyof IDiscrepancyResult] || "") // Matching Description Column
+              ]);
+          }
+      });
+    });
+
     const wb = XLSX.utils.book_new(); // Create a new workbook
 
     // Transpose descrepencyReport: Convert Columns → Rows
-    if (descrepencyReport.length > 0) {
-      const firstRow = descrepencyReport[0]; // Get the first row      
-      const transposedData = (Object.keys(firstRow) as (keyof IDiscrepancyResult)[]).map((key) => {
-        return [key, firstRow[key]];
-      });
-      const ws1 = XLSX.utils.aoa_to_sheet(transposedData); // Convert array to sheet
+    if (descrepencyReport.length > 0) {      
+      const ws1 = XLSX.utils.aoa_to_sheet([headers, ...tab2Data]); // Convert array to sheet
       XLSX.utils.book_append_sheet(wb, ws1, "Discrepancy Report");
     }
 
@@ -768,8 +792,12 @@ export default class SpDescrepency extends React.Component<
             // Update existing record
             const existingItemId = existingItems[0].Id; // Get ID of existing item
             await discrepancyList.items.getById(existingItemId).update({
+              field_4: item.LetsPositions,
+              DescLetsPositions: item.DescLetsPositions || "",
               field_5: item.VacantLetsPositions,
+              DescVacantLETSpositions: item.DescVacantLETSpositions || "",
               field_6: item.FilledLetsPositions,
+              DescFilledLETSpositions: item.DescFilledLETSpositions || "",
               field_7: item.EmployeeLetsNotFoundLocal,
               field_8: item.VacantPositionsLets,
               field_9: item.NumberofLocalPositions,
@@ -798,8 +826,11 @@ export default class SpDescrepency extends React.Component<
               field_2: currentYear,
               field_3: currentMonth,
               field_4: item.LetsPositions,
+              DescLetsPositions: item.DescLetsPositions || "",
               field_5: item.VacantLetsPositions,
+              DescVacantLETSpositions: item.DescVacantLETSpositions || "",
               field_6: item.FilledLetsPositions,
+              DescFilledLETSpositions: item.DescFilledLETSpositions || "",
               field_7: item.EmployeeLetsNotFoundLocal,
               field_8: item.VacantPositionsLets,
               field_9: item.NumberofLocalPositions,
@@ -865,10 +896,13 @@ export default class SpDescrepency extends React.Component<
       if (items.length > 0) {
         // Map SharePoint data to IDiscrepancyResult structure
         const descrepencyReport: IDiscrepancyResult[] = items.map((item) => ({
-          DiscrepancyName: item.Title, // Assuming Title holds the discrepancy name
+          //DiscrepancyName: item.Title, // Assuming Title holds the discrepancy name          
           LetsPositions: item.field_4,
+          DescLetsPositions: item.DescLetsPositions,
           VacantLetsPositions: item.field_5,
+          DescVacantLETSpositions: item.DescVacantLETSpositions,
           FilledLetsPositions: item.field_6,
+          DescFilledLETSpositions: item.DescFilledLETSpositions,
           EmployeeLetsNotFoundLocal: item.field_7,
           VacantPositionsLets: item.field_8,
           NumberofLocalPositions: item.field_9,
@@ -1093,14 +1127,9 @@ export default class SpDescrepency extends React.Component<
         <h4>Completed by LDSS Office Manager or LHRC Administrator</h4>
         <div className={styles.formGroup}>
           <label>Print Name:</label>
-          <input
-            type="text"
-            className={styles.formInput}
+          <input type="text" className={styles.formInput}
             value={adminFormData.adminPrintName}
-            onChange={(e) =>
-              this.setState({
-                adminFormData: {
-                  ...adminFormData,
+            onChange={(e) => this.setState({ adminFormData: { ...adminFormData,
                   adminPrintName: e.target.value,
                 },
               })
@@ -1127,7 +1156,7 @@ export default class SpDescrepency extends React.Component<
         <button
           className={styles.saveButton}
           onClick={this.saveAdminFormToSharePoint}
-          disabled={isSaving || !isAdmin} // Disable if not an admin
+          disabled={isSaving || !isAdmin || this.state.adminFormData.adminSignatureCompleted} // Disable if not an admin
         >
           {isSaving ? "Submitting..." : "Submit"}
         </button>
@@ -1178,7 +1207,7 @@ export default class SpDescrepency extends React.Component<
             <button
               className={styles.approveButton}
               onClick={() => this.handleDirectorApproval(true)}
-              disabled={!isDirector || isSaving} // Disabled if not a Director or Approving
+              disabled={!isDirector || isSaving || this.state.adminFormData.directorSignatureCompleted} // Disabled if not a Director or Approving
             >
               Approve
             </button>
@@ -1186,7 +1215,7 @@ export default class SpDescrepency extends React.Component<
             <button
               className={styles.rejectButton}
               onClick={() => this.handleDirectorApproval(false)}
-              disabled={!isDirector || isSaving} // Disabled if not a Director or rejecting
+              disabled={!isDirector || isSaving || this.state.adminFormData.directorSignatureCompleted} // Disabled if not a Director or rejecting
             >
               Reject
             </button>
@@ -1224,9 +1253,7 @@ export default class SpDescrepency extends React.Component<
       const existingItems = await list.items
         .filter(
           `Title eq '${selectedAgency}' and field_1 eq '${adminFormData.fips}' and field_2 eq '${currentMonth}' and field_3 eq '${currentYear}'`
-        )
-        .top(1)
-        .get();
+        ).top(1).get();
 
       if (existingItems.length > 0) {
         // Record found - Update existing entry
@@ -1275,6 +1302,14 @@ export default class SpDescrepency extends React.Component<
     }
   };
 
+  private handleDescriptionChange = (column: keyof IDiscrepancyResult, value: string, row: IDiscrepancyResult): void => {
+    this.setState((prevState) => ({
+      descrepencyReport: prevState.descrepencyReport.map((item) =>
+        item === row ? { ...item, [column]: value } : item
+      ),
+    }));
+  };
+  
   private renderDiscrepancyReport = (): JSX.Element => {
     const { descrepencyReport, isSaving, saveStatus } = this.state;
 
@@ -1292,6 +1327,7 @@ export default class SpDescrepency extends React.Component<
           <tr>
             <th className={styles.tableValue}>Discrepancy Name</th>
             <th>Count</th>
+            <th>Description</th>
           </tr>
         </thead>
         <tbody>
@@ -1305,6 +1341,11 @@ export default class SpDescrepency extends React.Component<
                   </a>
                 </td>
                 <td>{report.LetsPositions}</td>
+                <td>
+                  <input type="text" value={report.DescLetsPositions || ""} 
+                    onChange={(e) => this.handleDescriptionChange("DescLetsPositions", e.target.value, report)}                    
+                  />
+                </td>
               </tr>
               <tr>
                 <td>
@@ -1313,6 +1354,11 @@ export default class SpDescrepency extends React.Component<
                     }}>Vacant LETS positions </a>
                 </td>
                 <td>{report.VacantLetsPositions}</td>
+                <td>
+                  <input type="text" value={report.DescVacantLETSpositions || ""} 
+                    onChange={(e) => this.handleDescriptionChange("DescVacantLETSpositions", e.target.value, report)}
+                  />
+                </td>
               </tr>
               <tr>
                 <td>
@@ -1322,6 +1368,11 @@ export default class SpDescrepency extends React.Component<
                   </a>
                 </td>
                 <td>{report.FilledLetsPositions}</td>
+                <td>
+                  <input type="text" value={report.DescFilledLETSpositions || ""} 
+                    onChange={(e) => this.handleDescriptionChange("DescFilledLETSpositions", e.target.value, report)}
+                  />
+                </td>
               </tr>
               <tr>
                 <td>
