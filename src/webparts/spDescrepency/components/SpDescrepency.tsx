@@ -134,9 +134,9 @@ export default class SpDescrepency extends React.Component<
 
         this.setState(
           {
-            isAdmin: isAdmin, //userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail,            
+            isAdmin: isAdmin, //userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail,
             isDirector: isDirector, //!userRecord.DirectorAsstDirectorEmail && userRecord.DirectorAsstDirectorEmail?.toLowerCase() === currentUserEmail,
-            isHR: isHR, // Check if user is HR            
+            isHR: isHR, // Check if user is HR
             selectedAgency: defaultAgency, // Set default agency
             showAgencyDropdown: isHR, // Show dropdown only if HR
             userLocalityName: userRecord.field_1 || "", // Get locality name
@@ -148,8 +148,7 @@ export default class SpDescrepency extends React.Component<
             },
           },
           () => {
-            if(isHR)
-            {
+            if (isHR) {
               // eslint-disable-next-line no-void
               void this.fetchAgencyOptions();
             }
@@ -170,8 +169,7 @@ export default class SpDescrepency extends React.Component<
     try {
       const items = await sp.web.lists
         .getByTitle(listName)
-        .items
-        .select("Title", "field_1")        
+        .items.select("Title", "field_1")
         .get();
 
       // Transform data into dropdown format
@@ -179,7 +177,7 @@ export default class SpDescrepency extends React.Component<
         key: item.Title, // Value for dropdown
         text: `${item.Title} - ${item.field_1}`, // Display text
       }));
-  
+
       // Update state with agency options
       this.setState({ agencyOptions: agencyOptions });
     } catch (error) {
@@ -254,7 +252,10 @@ export default class SpDescrepency extends React.Component<
       });
 
       // Calculating Discrepancies based on userData and masterData
-      const discrepancyResult = this.calculateDiscrepancies(validRows, masterData);
+      const discrepancyResult = this.calculateDiscrepancies(
+        validRows,
+        masterData
+      );
 
       // Display the discrepancy report
       this.displayDiscrepancyReport([discrepancyResult]);
@@ -273,51 +274,119 @@ export default class SpDescrepency extends React.Component<
     }
   };
 
-  private calculateDiscrepancies = (validRows: IExcelRow[], masterData: IExcelRow[]): IDiscrepancyResult => {
+  private calculateDiscrepancies = (
+    validRows: IExcelRow[],
+    masterData: IExcelRow[]
+  ): IDiscrepancyResult => {
     const letsPositions = masterData.length;
-    const vacantLetsPositions = masterData.filter((master) => master.EmployeeFirstName).length;
-    const filledLetsPositions = masterData.filter((master) => !master.EmployeeFirstName).length;
+    const vacantLetsPositions = masterData.filter(
+      (master) => master.EmployeeFirstName
+    ).length;
+    const filledLetsPositions = masterData.filter(
+      (master) => !master.EmployeeFirstName
+    ).length;
 
-    const employeeLetsNotFoundLocal = masterData.filter((master) => master.EmployeeFirstName && // Ensure master data has an employee
-        !validRows.some((agency) => agency.EmployeeFirstName === master.EmployeeFirstName)).length; // Check if missing in validRows    
-    const vacantPositionsLets = validRows.filter((agency) => agency.EmployeeFirstName && // Ensure local data has an employee
-        !masterData.some((master) => master.EmployeeFirstName === agency.EmployeeFirstName)).length; // Check if missing in masterData    
+    const employeeLetsNotFoundLocal = masterData.filter(
+      (master) =>
+        master.EmployeeFirstName && // Ensure master data has an employee
+        !validRows.some(
+          (agency) => agency.EmployeeFirstName === master.EmployeeFirstName
+        )
+    ).length; // Check if missing in validRows
+    const vacantPositionsLets = validRows.filter(
+      (agency) =>
+        agency.EmployeeFirstName && // Ensure local data has an employee
+        !masterData.some(
+          (master) => master.EmployeeFirstName === agency.EmployeeFirstName
+        )
+    ).length; // Check if missing in masterData
     const numberofLocalPositions = validRows.length;
 
-    const numberOfVacantLocalPositions = validRows.filter((agency) => agency.EmployeeFirstName).length;
-    const numberOfFilledLocalPositions = masterData.filter((master) => master.EmployeeFirstName).length;
-    const numberOfEmployeesInLocalNotFoundInLets = validRows.filter((agency) => agency.EmployeeFirstName && // Ensure valid employee entry
-        !masterData.some((master) => master.EmployeeFirstName === agency.EmployeeFirstName)).length; // Check if missing in masterData
-    
+    const numberOfVacantLocalPositions = validRows.filter(
+      (agency) => agency.EmployeeFirstName
+    ).length;
+    const numberOfFilledLocalPositions = masterData.filter(
+      (master) => master.EmployeeFirstName
+    ).length;
+    const numberOfEmployeesInLocalNotFoundInLets = validRows.filter(
+      (agency) =>
+        agency.EmployeeFirstName && // Ensure valid employee entry
+        !masterData.some(
+          (master) => master.EmployeeFirstName === agency.EmployeeFirstName
+        )
+    ).length; // Check if missing in masterData
+
     const numberOfEmployeeWithSignificantSalary = 0;
     const numberOfLocalPositionsInLETS = 0;
-    const letsLocalPositionBlank = masterData.filter((master) => master.StatePositionNumber === "" || 
-                  master.StatePositionNumber === null || master.StatePositionNumber === undefined).length;    
-    const numberOfEmployeeWithPastDueProbation = masterData.filter((master) => master.ProbationExpectedEndDate === "" || 
-                  master.ProbationExpectedEndDate === null || master.ProbationExpectedEndDate === undefined).length;    
+    const letsLocalPositionBlank = masterData.filter(
+      (master) =>
+        master.StatePositionNumber === "" ||
+        master.StatePositionNumber === null ||
+        master.StatePositionNumber === undefined
+    ).length;
+    const numberOfEmployeeWithPastDueProbation = masterData.filter(
+      (master) =>
+        master.ProbationExpectedEndDate === "" ||
+        master.ProbationExpectedEndDate === null ||
+        master.ProbationExpectedEndDate === undefined
+    ).length;
     const numberOfEmployeeWithPastDueAnnual = masterData.filter((master) => {
-      if (!master.RatingDate) return true; // Blank dates are included    
+      if (!master.RatingDate) return true; // Blank dates are included
       const ratingDate = new Date(master.RatingDate); // Convert to Date object
       const oneYearAgo = new Date();
-      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1); // Get date one year ago    
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1); // Get date one year ago
       return ratingDate < oneYearAgo; // Check if RatingDate is older than a year
     }).length;
-    const numberOfEmployeeInExpiredPositions = masterData.filter((master) => master.EmployeeExpectedJobEndDate && new Date(master.EmployeeExpectedJobEndDate).getTime() < Date.now()).length;    
-    const numberOfPositionsWithInvalidRSC = masterData.filter((master) => master.ReimbursementStatusCode === "" || master.ReimbursementStatusCode === null || master.ReimbursementStatusCode === undefined).length;
-    
-    const employeeslistedbutNoEESalary = masterData.filter((master) => master.EmployeeSalary === null || master.EmployeeSalary === undefined || master.EmployeeSalary === "0").length;
-    const employeeslistedButNoEETimeStatus = masterData.filter((master) => master.EmployeeStatus === "" || master.EmployeeStatus === null).length;    
-    const partTimeEmployeesWithSalary = masterData.filter((master) => master.PositionTimeStatus === "P" && typeof master.EmployeeSalary === "number" && master.EmployeeSalary > 1000).length;    
-    const fullTimeEmployeesWithHourlyRate = masterData.filter((master) => master.PositionTimeStatus === "F" && typeof master.EmployeeSalary === "number" &&  master.EmployeeSalary < 1000).length;
-    const employeesWithDeviationCodePoint5 = masterData.filter((master) => master.DeviationCode !== "0" && master.DeviationCode !== "1").length;
-    const employeesWithBlankAssignTime = masterData.filter((master) => master.AssigPercentageTimeToPosition === "0" || master.AssigPercentageTimeToPosition === "").length;
-    const employeeswithBlankEmployeeStatus = masterData.filter((master) => !master.EmployeeStatus).length;
+    const numberOfEmployeeInExpiredPositions = masterData.filter(
+      (master) =>
+        master.EmployeeExpectedJobEndDate &&
+        new Date(master.EmployeeExpectedJobEndDate).getTime() < Date.now()
+    ).length;
+    const numberOfPositionsWithInvalidRSC = masterData.filter(
+      (master) =>
+        master.ReimbursementStatusCode === "" ||
+        master.ReimbursementStatusCode === null ||
+        master.ReimbursementStatusCode === undefined
+    ).length;
+
+    const employeeslistedbutNoEESalary = masterData.filter(
+      (master) =>
+        master.EmployeeSalary === null ||
+        master.EmployeeSalary === undefined ||
+        master.EmployeeSalary === "0"
+    ).length;
+    const employeeslistedButNoEETimeStatus = masterData.filter(
+      (master) => master.EmployeeStatus === "" || master.EmployeeStatus === null
+    ).length;
+    const partTimeEmployeesWithSalary = masterData.filter(
+      (master) =>
+        master.PositionTimeStatus === "P" &&
+        typeof master.EmployeeSalary === "number" &&
+        master.EmployeeSalary > 1000
+    ).length;
+    const fullTimeEmployeesWithHourlyRate = masterData.filter(
+      (master) =>
+        master.PositionTimeStatus === "F" &&
+        typeof master.EmployeeSalary === "number" &&
+        master.EmployeeSalary < 1000
+    ).length;
+    const employeesWithDeviationCodePoint5 = masterData.filter(
+      (master) => master.DeviationCode !== "0" && master.DeviationCode !== "1"
+    ).length;
+    const employeesWithBlankAssignTime = masterData.filter(
+      (master) =>
+        master.AssigPercentageTimeToPosition === "0" ||
+        master.AssigPercentageTimeToPosition === ""
+    ).length;
+    const employeeswithBlankEmployeeStatus = masterData.filter(
+      (master) => !master.EmployeeStatus
+    ).length;
 
     return {
       LetsPositions: letsPositions,
       DescLetsPositions: "",
       VacantLetsPositions: vacantLetsPositions,
-      DescVacantLETSpositions:"",
+      DescVacantLETSpositions: "",
       FilledLetsPositions: filledLetsPositions,
       DescFilledLETSpositions: "",
       EmployeeLetsNotFoundLocal: employeeLetsNotFoundLocal,
@@ -325,14 +394,17 @@ export default class SpDescrepency extends React.Component<
       NumberofLocalPositions: numberofLocalPositions,
       NumberOfVacantLocalPositions: numberOfVacantLocalPositions,
       NumberOfFilledLocalPositions: numberOfFilledLocalPositions,
-      NumberOfEmployeesInLocalNotFoundInLets: numberOfEmployeesInLocalNotFoundInLets,
-      NumberOfEmployeeWithSignificantSalary: numberOfEmployeeWithSignificantSalary,
+      NumberOfEmployeesInLocalNotFoundInLets:
+        numberOfEmployeesInLocalNotFoundInLets,
+      NumberOfEmployeeWithSignificantSalary:
+        numberOfEmployeeWithSignificantSalary,
       NumberOfLocalPositionsInLETS: numberOfLocalPositionsInLETS,
       LetsLocalPositionBlank: letsLocalPositionBlank,
-      NumberOfEmployeeWithPastDueProbation: numberOfEmployeeWithPastDueProbation,
+      NumberOfEmployeeWithPastDueProbation:
+        numberOfEmployeeWithPastDueProbation,
       NumberOfEmployeeWithPastDueAnnual: numberOfEmployeeWithPastDueAnnual,
       NumberOfEmployeeInExpiredPositions: numberOfEmployeeInExpiredPositions,
-      NumberOfPositionsWithInvalidRSC: numberOfPositionsWithInvalidRSC,      
+      NumberOfPositionsWithInvalidRSC: numberOfPositionsWithInvalidRSC,
       EmployeeslistedbutNoEESalary: employeeslistedbutNoEESalary,
       EmployeeslistedButNoEETimeStatus: employeeslistedButNoEETimeStatus,
       PartTimeEmployeesWithSalary: partTimeEmployeesWithSalary,
@@ -343,7 +415,9 @@ export default class SpDescrepency extends React.Component<
     };
   };
 
-  private displayDiscrepancyReport = (discrepancies: IDiscrepancyResult[]): void => {
+  private displayDiscrepancyReport = (
+    discrepancies: IDiscrepancyResult[]
+  ): void => {
     if (!discrepancies) {
       alert("No discrepancies found. Data matches the master database.");
       return;
@@ -466,7 +540,7 @@ export default class SpDescrepency extends React.Component<
   };
 
   private renderAgencyDropdown = (): JSX.Element | null => {
-    if (!this.state.showAgencyDropdown) return null;    
+    if (!this.state.showAgencyDropdown) return null;
     return (
       <Dropdown
         label="Select Agency Name"
@@ -556,39 +630,85 @@ export default class SpDescrepency extends React.Component<
       return;
     }
 
-    // ✅ Define headers as per the required format
-    const headers: [string, string, string] = ["Discrepancy Name", "Count", "Description"];
+    //  Define headers as per the required format
+    const headers: [string, string, string] = [
+      "Discrepancy Name",
+      "Count",
+      "Description",
+    ];
 
-    // ✅ Convert descrepencyReport into the required row format
+    //  Convert descrepencyReport into the required row format
     const tab2Data: [string, number, string][] = [];
+
+    /*
+    descrepencyReport.forEach((row) => {
+      Object.keys(row).forEach((key) => {
+        const lowerKey = key.toLowerCase(); // Normalize key for case-insensitive match
+
+        if (!lowerKey.startsWith("desc")) {
+          // Ignore description columns, only take main data
+          const count = Number(row[key as keyof IDiscrepancyResult]) || 0;
+
+          // Find the corresponding "Desc" column in a case-insensitive way
+          const descriptionKey = Object.keys(row).find(
+            (k) => k.toLowerCase() === `desc${lowerKey}`
+          );
+
+          const description = descriptionKey
+            ? String(row[descriptionKey as keyof IDiscrepancyResult] || "")
+            : "";
+
+          tab2Data.push([
+            key, // Discrepancy Name (Original Column Name)
+            count, // Count (Value)
+            description, // Matching Description Column
+          ]);
+        }
+      });
+    });
+    */
 
     descrepencyReport.forEach((row) => {
       Object.keys(row).forEach((key) => {
-          // Only include discrepancy-related columns (ignore metadata)
-          if (!key.startsWith("Desc")) {
-              tab2Data.push([
-                  key, 
-                  Number(row[key as keyof IDiscrepancyResult]) || 0, // Count (Value)
-                  String(row[`Desc${key}` as keyof IDiscrepancyResult] || "") // Matching Description Column
-              ]);
-          }
+        const lowerKey = key.toLowerCase(); // Normalize key for case-insensitive match
+    
+        if (!lowerKey.startsWith("desc")) { // Ignore description columns, only take main data
+          const count = Number(row[key as keyof IDiscrepancyResult]) || 0;
+    
+          // **NEW FIX: Apply truncation if length > 30 for both the key and Desc column**
+          const truncatedKey = lowerKey.length > 30 ? lowerKey.substring(0, 30) : lowerKey;
+          const truncatedDescKey = `desc${truncatedKey}`; // Description column should match this pattern
+    
+          // Find a description column that matches (truncated correctly)
+          const descriptionKey = Object.keys(row).find(
+            (k) => k.toLowerCase() === truncatedDescKey
+          );
+    
+          const description = descriptionKey ? String(row[descriptionKey as keyof IDiscrepancyResult] || "") : "";
+    
+          tab2Data.push([
+            key,  // Discrepancy Name (Original Column Name)
+            count, // Count (Value)
+            description // Matching Description Column
+          ]);
+        }
       });
     });
 
     const wb = XLSX.utils.book_new(); // Create a new workbook
 
     // Transpose descrepencyReport: Convert Columns → Rows
-    if (descrepencyReport.length > 0) {      
+    if (descrepencyReport.length > 0) {
       const ws1 = XLSX.utils.aoa_to_sheet([headers, ...tab2Data]); // Convert array to sheet
       XLSX.utils.book_append_sheet(wb, ws1, "Discrepancy Report");
     }
 
-    // ✅ Step 2: Add each discrepancy's detailed data in separate sheets
+    //  Step 2: Add each discrepancy's detailed data in separate sheets
     Object.keys(allDiscrepancyData).forEach((discrepancyName) => {
       const data = allDiscrepancyData[discrepancyName];
       if (data.length > 0) {
-          const detailsSheet = XLSX.utils.json_to_sheet(data);
-          XLSX.utils.book_append_sheet(wb, detailsSheet, discrepancyName);
+        const detailsSheet = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, detailsSheet, discrepancyName);
       }
     });
 
@@ -747,7 +867,7 @@ export default class SpDescrepency extends React.Component<
         },
       ];
     }
-    
+
     return (
       <div className={styles.tabContent}>
         <h3>Details for {selectedDiscrepancy}</h3>
@@ -812,12 +932,16 @@ export default class SpDescrepency extends React.Component<
               field_18: item.NumberOfEmployeeInExpiredPositions,
               field_19: item.NumberOfPositionsWithInvalidRSC,
               EmployeeslistedbutNoEESalary: item.EmployeeslistedbutNoEESalary,
-              EmployeeslistedButNoEETimeStatus: item.EmployeeslistedButNoEETimeStatus,
+              EmployeeslistedButNoEETimeStatus:
+                item.EmployeeslistedButNoEETimeStatus,
               PartTimeEmployeesWithSalary: item.PartTimeEmployeesWithSalary,
-              FullTimeEmployeesWithHourlyRate: item.FullTimeEmployeesWithHourlyRate,
-              EmployeesWithDeviationCodePoint5: item.EmployeesWithDeviationCodePoint5,
+              FullTimeEmployeesWithHourlyRate:
+                item.FullTimeEmployeesWithHourlyRate,
+              EmployeesWithDeviationCodePoint5:
+                item.EmployeesWithDeviationCodePoint5,
               EmployeesWithBlankAssignTime: item.EmployeesWithBlankAssignTime,
-              EmployeeswithBlankEmployeeStatus: item.EmployeeswithBlankEmployeeStatus,
+              EmployeeswithBlankEmployeeStatus:
+                item.EmployeeswithBlankEmployeeStatus,
             });
           } else {
             // Insert new record
@@ -845,12 +969,16 @@ export default class SpDescrepency extends React.Component<
               field_18: item.NumberOfEmployeeInExpiredPositions,
               field_19: item.NumberOfPositionsWithInvalidRSC,
               EmployeeslistedbutNoEESalary: item.EmployeeslistedbutNoEESalary,
-              EmployeeslistedButNoEETimeStatus: item.EmployeeslistedButNoEETimeStatus,
+              EmployeeslistedButNoEETimeStatus:
+                item.EmployeeslistedButNoEETimeStatus,
               PartTimeEmployeesWithSalary: item.PartTimeEmployeesWithSalary,
-              FullTimeEmployeesWithHourlyRate: item.FullTimeEmployeesWithHourlyRate,
-              EmployeesWithDeviationCodePoint5: item.EmployeesWithDeviationCodePoint5,
+              FullTimeEmployeesWithHourlyRate:
+                item.FullTimeEmployeesWithHourlyRate,
+              EmployeesWithDeviationCodePoint5:
+                item.EmployeesWithDeviationCodePoint5,
               EmployeesWithBlankAssignTime: item.EmployeesWithBlankAssignTime,
-              EmployeeswithBlankEmployeeStatus: item.EmployeeswithBlankEmployeeStatus,
+              EmployeeswithBlankEmployeeStatus:
+                item.EmployeeswithBlankEmployeeStatus,
             });
           }
         })
@@ -896,7 +1024,7 @@ export default class SpDescrepency extends React.Component<
       if (items.length > 0) {
         // Map SharePoint data to IDiscrepancyResult structure
         const descrepencyReport: IDiscrepancyResult[] = items.map((item) => ({
-          //DiscrepancyName: item.Title, // Assuming Title holds the discrepancy name          
+          //DiscrepancyName: item.Title, // Assuming Title holds the discrepancy name
           LetsPositions: item.field_4,
           DescLetsPositions: item.DescLetsPositions,
           VacantLetsPositions: item.field_5,
@@ -907,8 +1035,9 @@ export default class SpDescrepency extends React.Component<
           VacantPositionsLets: item.field_8,
           NumberofLocalPositions: item.field_9,
           NumberOfVacantLocalPositions: item.field_10,
-          NumberOfFilledLocalPositions: item.field_11,          
-          NumberOfEmployeesInLocalNotFoundInLets: Number(item.NumberOfEmployeesInLocalNotFoundInLets) || 0,
+          NumberOfFilledLocalPositions: item.field_11,
+          NumberOfEmployeesInLocalNotFoundInLets:
+            Number(item.NumberOfEmployeesInLocalNotFoundInLets) || 0,
           NumberOfEmployeeWithSignificantSalary: item.field_12,
           NumberOfLocalPositionsInLETS: item.field_13,
           LetsLocalPositionBlank: item.field_14,
@@ -917,64 +1046,79 @@ export default class SpDescrepency extends React.Component<
           NumberOfEmployeeInExpiredPositions: item.field_17,
           NumberOfPositionsWithInvalidRSC: item.field_18,
           EmployeeslistedbutNoEESalary: item.EmployeeslistedbutNoEESalary,
-          EmployeeslistedButNoEETimeStatus: item.EmployeeslistedButNoEETimeStatus,
+          EmployeeslistedButNoEETimeStatus:
+            item.EmployeeslistedButNoEETimeStatus,
           PartTimeEmployeesWithSalary: item.PartTimeEmployeesWithSalary,
           FullTimeEmployeesWithHourlyRate: item.FullTimeEmployeesWithHourlyRate,
-          EmployeesWithDeviationCodePoint5: item.EmployeesWithDeviationCodePoint5,
+          EmployeesWithDeviationCodePoint5:
+            item.EmployeesWithDeviationCodePoint5,
           EmployeesWithBlankAssignTime: item.EmployeesWithBlankAssignTime,
-          EmployeeswithBlankEmployeeStatus: item.EmployeeswithBlankEmployeeStatus,
+          EmployeeswithBlankEmployeeStatus:
+            item.EmployeeswithBlankEmployeeStatus,
         }));
 
-          const transformedDescrepencyReport: IDiscrepancyData[] = [];
-          // Extract the first object since descrepencyReport is an array with a single object
-          const firstRow = descrepencyReport[0];           
-          // Convert the object properties into an array of rows
-          Object.keys(firstRow).forEach((key) => {
-              if (key !== "DiscrepancyName") { // Avoid the null DiscrepancyName field
-                  transformedDescrepencyReport.push({
-                      DiscrepancyName: key, // Column name becomes row entry
-                      Count: Number(firstRow[key as keyof IDiscrepancyResult]) || 0, // Assign value and ensure it's a number
-                  });
-              }
-          });
-                    
+        const transformedDescrepencyReport: IDiscrepancyData[] = [];
+        // Extract the first object since descrepencyReport is an array with a single object
+        const firstRow = descrepencyReport[0];
+        // Convert the object properties into an array of rows
+        Object.keys(firstRow).forEach((key) => {
+          if (key !== "DiscrepancyName") {
+            // Avoid the null DiscrepancyName field
+            transformedDescrepencyReport.push({
+              DiscrepancyName: key, // Column name becomes row entry
+              Count: Number(firstRow[key as keyof IDiscrepancyResult]) || 0, // Assign value and ensure it's a number
+            });
+          }
+        });
+
         // Loop through the transformed rows
         const allDiscrepancyData: Record<string, IExcelRow[]> = {};
         transformedDescrepencyReport.forEach(({ DiscrepancyName, Count }) => {
           let filteredData: IExcelRow[] = [];
 
           switch (DiscrepancyName) {
-              case "LetsPositions":
-                  filteredData = this.state.masterData;
-                  break;
-              case "VacantLetsPositions":
-                  filteredData = this.state.masterData.filter((row) => row.EmployeeFirstName);
-                  break;
-              case "FilledLetsPositions":
-                  filteredData = this.state.masterData.filter((row) => !row.EmployeeFirstName);
-                  break;
-              case "EmployeeLetsNotFoundLocal":
-              case "VacantPositionsLets":
-                  filteredData = this.state.masterData;
-                  break;
-              case "NumberofLocalPositions":
-                  filteredData = this.state.validAgencyData;
-                  break;
-              case "NumberOfVacantLocalPositions":
-                  filteredData = this.state.validAgencyData.filter((agency) => agency.EmployeeFirstName);
-                  break;
-              case "NumberOfFilledLocalPositions":
-                  filteredData = this.state.validAgencyData.filter((agency) => !agency.EmployeeFirstName);
-                  break;
-              default:
-                  filteredData = [];
+            case "LetsPositions":
+              filteredData = this.state.masterData;
+              break;
+            case "VacantLetsPositions":
+              filteredData = this.state.masterData.filter(
+                (row) => row.EmployeeFirstName
+              );
+              break;
+            case "FilledLetsPositions":
+              filteredData = this.state.masterData.filter(
+                (row) => !row.EmployeeFirstName
+              );
+              break;
+            case "EmployeeLetsNotFoundLocal":
+            case "VacantPositionsLets":
+              filteredData = this.state.masterData;
+              break;
+            case "NumberofLocalPositions":
+              filteredData = this.state.validAgencyData;
+              break;
+            case "NumberOfVacantLocalPositions":
+              filteredData = this.state.validAgencyData.filter(
+                (agency) => agency.EmployeeFirstName
+              );
+              break;
+            case "NumberOfFilledLocalPositions":
+              filteredData = this.state.validAgencyData.filter(
+                (agency) => !agency.EmployeeFirstName
+              );
+              break;
+            default:
+              filteredData = [];
           }
 
-          // ✅ Store the processed data
+          //  Store the processed data
           allDiscrepancyData[DiscrepancyName] = filteredData;
         });
         // Update state with fetched data
-        this.setState({ descrepencyReport: descrepencyReport, allDiscrepancyData: allDiscrepancyData });
+        this.setState({
+          descrepencyReport: descrepencyReport,
+          allDiscrepancyData: allDiscrepancyData,
+        });
       }
     } catch (error) {
       console.error("Error fetching discrepancy report from SharePoint:", error);
@@ -1127,9 +1271,14 @@ export default class SpDescrepency extends React.Component<
         <h4>Completed by LDSS Office Manager or LHRC Administrator</h4>
         <div className={styles.formGroup}>
           <label>Print Name:</label>
-          <input type="text" className={styles.formInput}
+          <input
+            type="text"
+            className={styles.formInput}
             value={adminFormData.adminPrintName}
-            onChange={(e) => this.setState({ adminFormData: { ...adminFormData,
+            onChange={(e) =>
+              this.setState({
+                adminFormData: {
+                  ...adminFormData,
                   adminPrintName: e.target.value,
                 },
               })
@@ -1156,7 +1305,11 @@ export default class SpDescrepency extends React.Component<
         <button
           className={styles.saveButton}
           onClick={this.saveAdminFormToSharePoint}
-          disabled={isSaving || !isAdmin || this.state.adminFormData.adminSignatureCompleted} // Disable if not an admin
+          disabled={
+            isSaving ||
+            !isAdmin ||
+            this.state.adminFormData.adminSignatureCompleted
+          } // Disable if not an admin
         >
           {isSaving ? "Submitting..." : "Submit"}
         </button>
@@ -1207,7 +1360,11 @@ export default class SpDescrepency extends React.Component<
             <button
               className={styles.approveButton}
               onClick={() => this.handleDirectorApproval(true)}
-              disabled={!isDirector || isSaving || this.state.adminFormData.directorSignatureCompleted} // Disabled if not a Director or Approving
+              disabled={
+                !isDirector ||
+                isSaving ||
+                this.state.adminFormData.directorSignatureCompleted
+              } // Disabled if not a Director or Approving
             >
               Approve
             </button>
@@ -1215,7 +1372,11 @@ export default class SpDescrepency extends React.Component<
             <button
               className={styles.rejectButton}
               onClick={() => this.handleDirectorApproval(false)}
-              disabled={!isDirector || isSaving || this.state.adminFormData.directorSignatureCompleted} // Disabled if not a Director or rejecting
+              disabled={
+                !isDirector ||
+                isSaving ||
+                this.state.adminFormData.directorSignatureCompleted
+              } // Disabled if not a Director or rejecting
             >
               Reject
             </button>
@@ -1253,7 +1414,9 @@ export default class SpDescrepency extends React.Component<
       const existingItems = await list.items
         .filter(
           `Title eq '${selectedAgency}' and field_1 eq '${adminFormData.fips}' and field_2 eq '${currentMonth}' and field_3 eq '${currentYear}'`
-        ).top(1).get();
+        )
+        .top(1)
+        .get();
 
       if (existingItems.length > 0) {
         // Record found - Update existing entry
@@ -1302,14 +1465,18 @@ export default class SpDescrepency extends React.Component<
     }
   };
 
-  private handleDescriptionChange = (column: keyof IDiscrepancyResult, value: string, row: IDiscrepancyResult): void => {
+  private handleDescriptionChange = (
+    column: keyof IDiscrepancyResult,
+    value: string,
+    row: IDiscrepancyResult
+  ): void => {
     this.setState((prevState) => ({
       descrepencyReport: prevState.descrepencyReport.map((item) =>
         item === row ? { ...item, [column]: value } : item
       ),
     }));
   };
-  
+
   private renderDiscrepancyReport = (): JSX.Element => {
     const { descrepencyReport, isSaving, saveStatus } = this.state;
 
@@ -1319,248 +1486,444 @@ export default class SpDescrepency extends React.Component<
 
     return (
       <div>
-      <a href="#" className={styles.exportLink} onClick={(e) => {e.preventDefault();
-            this.exportDiscrepancyToExcel(); }}> 📥 Export to Excel
-      </a>
-      <table className={styles.reportTable}>
-        <thead>
-          <tr>
-            <th className={styles.tableValue}>Discrepancy Name</th>
-            <th>Count</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          {this.state.descrepencyReport.map((report, index) => (
-            <React.Fragment key={index}>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => {e.preventDefault();
-                      this.handleDiscrepancyClick("LetsPositions");}}>
-                    LETS positions (filled and vacant)
-                  </a>
-                </td>
-                <td>{report.LetsPositions}</td>
-                <td>
-                  <input type="text" value={report.DescLetsPositions || ""} 
-                    onChange={(e) => this.handleDescriptionChange("DescLetsPositions", e.target.value, report)}                    
-                  />
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => {e.preventDefault();
-                      this.handleDiscrepancyClick("VacantLetsPositions");
-                    }}>Vacant LETS positions </a>
-                </td>
-                <td>{report.VacantLetsPositions}</td>
-                <td>
-                  <input type="text" value={report.DescVacantLETSpositions || ""} 
-                    onChange={(e) => this.handleDescriptionChange("DescVacantLETSpositions", e.target.value, report)}
-                  />
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => {e.preventDefault();
-                      this.handleDiscrepancyClick("FilledLetsPositions");
-                    }}>Filled LETS positions
-                  </a>
-                </td>
-                <td>{report.FilledLetsPositions}</td>
-                <td>
-                  <input type="text" value={report.DescFilledLETSpositions || ""} 
-                    onChange={(e) => this.handleDescriptionChange("DescFilledLETSpositions", e.target.value, report)}
-                  />
-                </td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => {e.preventDefault();
-                      this.handleDiscrepancyClick("EmployeeLetsNotFoundLocal");
-                    }}>Employees in LETS not found local file
-                  </a>
-                </td>
-                <td>{report.EmployeeLetsNotFoundLocal}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => {e.preventDefault();
-                      this.handleDiscrepancyClick("VacantPositionsLets");
-                    }}>
-                    Vacant positions in LETS that may be improperly vacant (i.e.
-                    there is an equivalent filled position in local data)
-                  </a>
-                </td>
-                <td>{report.VacantPositionsLets}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => {e.preventDefault();
-                      this.handleDiscrepancyClick("NumberofLocalPositions");
-                    }}> # of local positions (filled and vacant)
-                  </a>
-                </td>
-                <td>{report.NumberofLocalPositions}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("NumberOfVacantLocalPositions");
-                    }}> # of filled local positions
-                  </a>
-                </td>
-                <td>{report.NumberOfVacantLocalPositions}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => {e.preventDefault();
-                      this.handleDiscrepancyClick("NumberOfFilledLocalPositions");
-                    }}> # of employees in local not found in LETS data
-                  </a>
-                </td>
-                <td>{report.NumberOfFilledLocalPositions}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("NumberOfEmployeeWithSignificantSalary");
-                    }}>
-                    # of employees with significant (&gt; $1.00) salary
-                    variances between LETS and local data
-                  </a>
-                </td>
-                <td>{report.NumberOfEmployeeWithSignificantSalary}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("NumberOfLocalPositionsInLETS");
-                    }}> # of local positions that are also in LETS with different state titles
-                  </a>
-                </td>
-                <td>{report.NumberOfLocalPositionsInLETS}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => {e.preventDefault();
-                      this.handleDiscrepancyClick("LetsLocalPositionBlank");
-                    }}> LETS local position is blank
-                  </a>
-                </td>
-                <td>{report.LetsLocalPositionBlank}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => {e.preventDefault();
-                      this.handleDiscrepancyClick("NumberOfEmployeeWithPastDueProbation");
-                    }}> # of Employees with Past Due Probation Ending Date
-                  </a>
-                </td>
-                <td>{report.NumberOfEmployeeWithPastDueProbation}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => {e.preventDefault();
-                      this.handleDiscrepancyClick("NumberOfEmployeeWithPastDueAnnual");
-                    }}> # of Employees with Past Due Annual Evaluation Date
-                  </a>
-                </td>
-                <td>{report.NumberOfEmployeeWithPastDueAnnual}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("NumberOfEmployeeInExpiredPositions");
-                    }}> # of Employees in Expired Positions
-                  </a>
-                </td>
-                <td>{report.NumberOfEmployeeInExpiredPositions}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("NumberOfPositionsWithInvalidRSC");
-                    }}> # of Positions with Invalid RSC values
-                  </a>
-                </td>
-                <td>{report.NumberOfPositionsWithInvalidRSC}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("EmployeeslistedbutNoEESalary");
-                    }}> # of Employees listed but there is no EE Salary
-                  </a>
-                </td>
-                <td>{report.EmployeeslistedbutNoEESalary}</td>
-              </tr><tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("EmployeeslistedButNoEETimeStatus");
-                    }}> # of Employees listed but there is no EE Time Status
-                  </a>
-                </td>
-                <td>{report.EmployeeslistedButNoEETimeStatus}</td>
-              </tr><tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("PartTimeEmployeesWithSalary");
-                    }}> # of Part-Time Employees listed with a salary
-                  </a>
-                </td>
-                <td>{report.PartTimeEmployeesWithSalary}</td>
-              </tr><tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("FullTimeEmployeesWithHourlyRate");
-                    }}> # of Full-Time Employees listed with an hourly rate
-                  </a>
-                </td>
-                <td>{report.FullTimeEmployeesWithHourlyRate}</td>
-              </tr><tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("EmployeesWithDeviationCodePoint5");
-                    }}> # of Employees with a Deviation Code of .5
-                  </a>
-                </td>
-                <td>{report.EmployeesWithDeviationCodePoint5}</td>
-              </tr><tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("EmployeesWithBlankAssignTime");
-                    }}> # of Employees listed with blank Assign % Time 
-                  </a>
-                </td>
-                <td>{report.EmployeesWithBlankAssignTime}</td>
-              </tr>
-              <tr>
-                <td>
-                  <a href="#" onClick={(e) => { e.preventDefault();
-                      this.handleDiscrepancyClick("EmployeeswithBlankEmployeeStatus");
-                    }}> # of Employees listed with blank Employee Status
-                  </a>
-                </td>
-                <td>{report.EmployeeswithBlankEmployeeStatus}</td>
-              </tr>
-            </React.Fragment>
-          ))}
-        </tbody>
-        {/* Save to SharePoint Button */}
-        <button
-          className={styles.saveButton}
-          onClick={() =>
-            this.saveDiscrepancyReportToSharePoint(descrepencyReport)
-          }
-          disabled={isSaving} // Disable while saving
+        <a
+          href="#"
+          className={styles.exportLink}
+          onClick={(e) => {
+            e.preventDefault();
+            this.exportDiscrepancyToExcel();
+          }}
         >
-          {isSaving ? "Saving..." : "Submit"}
-        </button>
+          {" "}
+          📥 Export to Excel
+        </a>
+        <table className={styles.reportTable}>
+          <thead>
+            <tr>
+              <th className={styles.tableValue}>Discrepancy Name</th>
+              <th>Count</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {this.state.descrepencyReport.map((report, index) => (
+              <React.Fragment key={index}>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick("LetsPositions");
+                      }}
+                    >
+                      LETS positions (filled and vacant)
+                    </a>
+                  </td>
+                  <td>{report.LetsPositions}</td>
+                  <td>
+                    <textarea
+                      rows={3}
+                      value={report.DescLetsPositions || ""}
+                      onChange={(e) =>
+                        this.handleDescriptionChange(
+                          "DescLetsPositions",
+                          e.target.value,
+                          report
+                        )
+                      }
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick("VacantLetsPositions");
+                      }}
+                    >
+                      Vacant LETS positions{" "}
+                    </a>
+                  </td>
+                  <td>{report.VacantLetsPositions}</td>
+                  <td>
+                    <textarea
+                      rows={3}
+                      value={report.DescVacantLETSpositions || ""}
+                      onChange={(e) =>
+                        this.handleDescriptionChange(
+                          "DescVacantLETSpositions",
+                          e.target.value,
+                          report
+                        )
+                      }
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick("FilledLetsPositions");
+                      }}
+                    >
+                      Filled LETS positions
+                    </a>
+                  </td>
+                  <td>{report.FilledLetsPositions}</td>
+                  <td>
+                    <textarea
+                      rows={3}
+                      value={report.DescFilledLETSpositions || ""}
+                      onChange={(e) =>
+                        this.handleDescriptionChange(
+                          "DescFilledLETSpositions",
+                          e.target.value,
+                          report
+                        )
+                      }
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "EmployeeLetsNotFoundLocal"
+                        );
+                      }}
+                    >
+                      Employees in LETS not found local file
+                    </a>
+                  </td>
+                  <td>{report.EmployeeLetsNotFoundLocal}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick("VacantPositionsLets");
+                      }}
+                    >
+                      Vacant positions in LETS that may be improperly vacant
+                      (i.e. there is an equivalent filled position in local
+                      data)
+                    </a>
+                  </td>
+                  <td>{report.VacantPositionsLets}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick("NumberofLocalPositions");
+                      }}
+                    >
+                      {" "}
+                      # of local positions (filled and vacant)
+                    </a>
+                  </td>
+                  <td>{report.NumberofLocalPositions}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "NumberOfVacantLocalPositions"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of filled local positions
+                    </a>
+                  </td>
+                  <td>{report.NumberOfVacantLocalPositions}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "NumberOfFilledLocalPositions"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of employees in local not found in LETS data
+                    </a>
+                  </td>
+                  <td>{report.NumberOfFilledLocalPositions}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "NumberOfEmployeeWithSignificantSalary"
+                        );
+                      }}
+                    >
+                      # of employees with significant (&gt; $1.00) salary
+                      variances between LETS and local data
+                    </a>
+                  </td>
+                  <td>{report.NumberOfEmployeeWithSignificantSalary}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "NumberOfLocalPositionsInLETS"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of local positions that are also in LETS with different
+                      state titles
+                    </a>
+                  </td>
+                  <td>{report.NumberOfLocalPositionsInLETS}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick("LetsLocalPositionBlank");
+                      }}
+                    >
+                      {" "}
+                      LETS local position is blank
+                    </a>
+                  </td>
+                  <td>{report.LetsLocalPositionBlank}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "NumberOfEmployeeWithPastDueProbation"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of Employees with Past Due Probation Ending Date
+                    </a>
+                  </td>
+                  <td>{report.NumberOfEmployeeWithPastDueProbation}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "NumberOfEmployeeWithPastDueAnnual"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of Employees with Past Due Annual Evaluation Date
+                    </a>
+                  </td>
+                  <td>{report.NumberOfEmployeeWithPastDueAnnual}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "NumberOfEmployeeInExpiredPositions"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of Employees in Expired Positions
+                    </a>
+                  </td>
+                  <td>{report.NumberOfEmployeeInExpiredPositions}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "NumberOfPositionsWithInvalidRSC"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of Positions with Invalid RSC values
+                    </a>
+                  </td>
+                  <td>{report.NumberOfPositionsWithInvalidRSC}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "EmployeeslistedbutNoEESalary"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of Employees listed but there is no EE Salary
+                    </a>
+                  </td>
+                  <td>{report.EmployeeslistedbutNoEESalary}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "EmployeeslistedButNoEETimeStatus"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of Employees listed but there is no EE Time Status
+                    </a>
+                  </td>
+                  <td>{report.EmployeeslistedButNoEETimeStatus}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "PartTimeEmployeesWithSalary"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of Part-Time Employees listed with a salary
+                    </a>
+                  </td>
+                  <td>{report.PartTimeEmployeesWithSalary}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "FullTimeEmployeesWithHourlyRate"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of Full-Time Employees listed with an hourly rate
+                    </a>
+                  </td>
+                  <td>{report.FullTimeEmployeesWithHourlyRate}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "EmployeesWithDeviationCodePoint5"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of Employees with a Deviation Code of .5
+                    </a>
+                  </td>
+                  <td>{report.EmployeesWithDeviationCodePoint5}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "EmployeesWithBlankAssignTime"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of Employees listed with blank Assign % Time
+                    </a>
+                  </td>
+                  <td>{report.EmployeesWithBlankAssignTime}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        this.handleDiscrepancyClick(
+                          "EmployeeswithBlankEmployeeStatus"
+                        );
+                      }}
+                    >
+                      {" "}
+                      # of Employees listed with blank Employee Status
+                    </a>
+                  </td>
+                  <td>{report.EmployeeswithBlankEmployeeStatus}</td>
+                </tr>
+              </React.Fragment>
+            ))}
+          </tbody>
+          {/* Save to SharePoint Button */}
+          <button
+            className={styles.saveButton}
+            onClick={() =>
+              this.saveDiscrepancyReportToSharePoint(descrepencyReport)
+            }
+            disabled={isSaving} // Disable while saving
+          >
+            {isSaving ? "Saving..." : "Submit"}
+          </button>
 
-        {/* Show status message after saving */}
-        {saveStatus && <p className={styles.statusMessage}>{saveStatus}</p>}
-      </table>
+          {/* Show status message after saving */}
+          {saveStatus && <p className={styles.statusMessage}>{saveStatus}</p>}
+        </table>
       </div>
     );
   };
@@ -1979,7 +2342,10 @@ export default class SpDescrepency extends React.Component<
 
           <div className={styles.tabContent}>
             {this.state.isLoading ? (
-              <Spinner size={SpinnerSize.large} label="Please wait while loading data..." />
+              <Spinner
+                size={SpinnerSize.large}
+                label="Please wait while loading data..."
+              />
             ) : (
               <>
                 {this.state.activeTab === "MasterData" &&
