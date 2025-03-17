@@ -640,34 +640,6 @@ export default class SpDescrepency extends React.Component<
     //  Convert descrepencyReport into the required row format
     const tab2Data: [string, number, string][] = [];
 
-    /*
-    descrepencyReport.forEach((row) => {
-      Object.keys(row).forEach((key) => {
-        const lowerKey = key.toLowerCase(); // Normalize key for case-insensitive match
-
-        if (!lowerKey.startsWith("desc")) {
-          // Ignore description columns, only take main data
-          const count = Number(row[key as keyof IDiscrepancyResult]) || 0;
-
-          // Find the corresponding "Desc" column in a case-insensitive way
-          const descriptionKey = Object.keys(row).find(
-            (k) => k.toLowerCase() === `desc${lowerKey}`
-          );
-
-          const description = descriptionKey
-            ? String(row[descriptionKey as keyof IDiscrepancyResult] || "")
-            : "";
-
-          tab2Data.push([
-            key, // Discrepancy Name (Original Column Name)
-            count, // Count (Value)
-            description, // Matching Description Column
-          ]);
-        }
-      });
-    });
-    */
-
     descrepencyReport.forEach((row) => {
       Object.keys(row).forEach((key) => {
         const lowerKey = key.toLowerCase(); // Normalize key for case-insensitive match
