@@ -1,5 +1,5 @@
 import { read, utils } from "xlsx";
-import { IExcelRow } from "./ISpDescrepencyProps";
+import { IExcelRow} from "./ISpDescrepencyProps";
 import { IColumn } from "@fluentui/react";
 
 export const readExcel = (file: File): Promise<IExcelRow[]> => {

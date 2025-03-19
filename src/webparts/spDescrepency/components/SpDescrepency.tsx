@@ -1,6 +1,6 @@
 import * as React from "react";
 import styles from "./SpDescrepency.module.scss";
-import type { ISpDescrepencyState, IExcelRow, IDiscrepancyResult, ISpDescrepencyProps, IDiscrepancyData } from "./ISpDescrepencyProps";
+import type { ISpDescrepencyState, IExcelRow, IDiscrepancyResult, ISpDescrepencyProps, IDiscrepancyData, IMasterDataItem } from "./ISpDescrepencyProps";
 import { sp } from "@pnp/sp/presets/all";
 import { read, utils } from "xlsx";
 import * as XLSX from "xlsx";
@@ -434,24 +434,52 @@ export default class SpDescrepency extends React.Component<
     await this.fetchMasterAgencyData(agency);
   };
 
+  private fetchListItems = async (listName: string, filterQuery: string): Promise<IMasterDataItem[]> => {
+    const batchSize = 5000; // Max batch size allowed by SharePoint
+    let allItems: IMasterDataItem[] = [];
+    let lastID = 0; // Track last processed ID for pagination
+    let batch: IMasterDataItem[];
+
+    do {
+      batch = await sp.web.lists
+        .getByTitle(listName)
+        .items.filter(`${filterQuery} and ID gt ${lastID}`) // Use indexed filtering for large lists
+        .select("*") // Adjust fields if needed
+        .orderBy("ID", true) // Order by ID for pagination
+        .top(batchSize) // Fetch in batches
+        .get();
+
+      allItems = [...allItems, ...batch];
+
+      if (batch.length > 0) {
+        lastID = batch[batch.length - 1].ID; // Get last fetched ID for next batch
+      }
+    } while (batch.length === batchSize); // Continue fetching if batch is full
+
+    return allItems;
+  };
+
   private fetchMasterAgencyData = async (agency: string): Promise<void> => {
-    const listName = "PRS_Master_Data"; // Replace with your list name
+    const listName = "Master_Data"; // Replace with your list name
     try {
-      const items = await sp.web.lists
+      /*const items = await sp.web.lists
         .getByTitle(listName)
         .items.filter(`field_4 eq '${agency}'`) // Filter based on the selected agency
         .select("*")
         //.top(100) // Adjust the number of rows to fetch
-        .getAll();
+        .getAll();*/
+      // Call the helper function with correct type
 
+      const items: IMasterDataItem[] = await this.fetchListItems(listName, `field_1 eq '${agency}'`);      
+      
       const masterData = items.map((item) => ({
-        BureauFIPS: item.Title,
-        Region: item.field_3, //StateJobTitle
-        PersonNumber: item.field_5, //StateJobTitle
-        FirstName: item.field_6, //EmployeeLastName
-        LastName: item.field_7, //EmployeeFirstName
-        MiddleName: item.field_28,
-        FIPS: item.field_4,
+        BureauFIPS: item.field_1,
+        Region: item.field_2, //StateJobTitle
+        PersonNumber: item.field_3, //StateJobTitle
+        FirstName: item.field_4, //EmployeeLastName
+        LastName: item.field_5, //EmployeeFirstName
+        MiddleName: item.field_6,
+        FIPS: item.field_7,
         EmployeeStatus: item.field_8,
         EmployeePositionBeginDate: item.field_9,
         EmployeeSalary: item.field_10,
@@ -464,14 +492,14 @@ export default class SpDescrepency extends React.Component<
         PositionDuration: item.field_17,
         PositionTimeStatus: item.field_18,
         PositionStatus: item.field_19,
-        PositionCLStartDate: item.field_20,
+        /*PositionCLStartDate: item.field_20,
         EffectiveDateFrom: item.field_21,
         ExpectedPositionEndDate: item.field_22,
         PositionEndDate: item.field_23,
         ReimbursementStatusCode: item.field_24,
         RatingDate: item.field_25,
         EmployeeExpectedJobEndDate: item.field_26,
-        ProbationExpectedEndDate: item.field_27,
+        ProbationExpectedEndDate: item.field_27,*/
       }));
       this.setState({ masterData });
     } catch (error) {
