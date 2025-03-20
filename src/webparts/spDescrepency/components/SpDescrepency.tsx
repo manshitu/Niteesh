@@ -40,6 +40,8 @@ export default class SpDescrepency extends React.Component<
       userLocalityName: "", // Stores user's locality name
       userFIPS: "", // Stores user's FIPS code
       allDiscrepancyData: {},
+      enableSaveButton: false,
+      isLateSubmission: false,
       adminFormData: {
         fips: "",
         month: "",
@@ -131,7 +133,14 @@ export default class SpDescrepency extends React.Component<
 
         const isHR = userRecord.HREmail?.toLowerCase() === currentUserEmail;
         const defaultAgency = userRecord.Title || ""; // Get agency name (Title column)
-
+        
+        const submissionDate = userRecord.SubmissionDate ? new Date(userRecord.SubmissionDate) : new Date();
+        const today = new Date();
+        // Remove time part to compare only dates
+        submissionDate.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0);
+        // If submissionDate is today or earlier, set isLateSubmission to false
+        const isLateSubmission = submissionDate < today ? true : false;
         this.setState(
           {
             isAdmin: isAdmin, //userRecord.PrimaryAdminEmail?.toLowerCase() === currentUserEmail,
@@ -141,6 +150,7 @@ export default class SpDescrepency extends React.Component<
             showAgencyDropdown: isHR, // Show dropdown only if HR
             userLocalityName: userRecord.field_1 || "", // Get locality name
             userFIPS: userRecord.Title || "", // Get FIPS code
+            isLateSubmission: isLateSubmission,
             adminFormData: {
               ...this.state.adminFormData,
               adminPrintName: adminPrintName,
@@ -247,6 +257,7 @@ export default class SpDescrepency extends React.Component<
       // await this.saveDataToList(validRows);
 
       this.setState({
+        enableSaveButton: true,
         style: styles.successMessage,
         uploadStatus: `File uploaded successfully! ${validRows.length} rows saved. ${invalidRows.length} rows skipped due to validation errors.`,
       });
@@ -274,10 +285,7 @@ export default class SpDescrepency extends React.Component<
     }
   };
 
-  private calculateDiscrepancies = (
-    validRows: IExcelRow[],
-    masterData: IExcelRow[]
-  ): IDiscrepancyResult => {
+  private calculateDiscrepancies = (validRows: IExcelRow[], masterData: IExcelRow[]): IDiscrepancyResult => {
     const letsPositions = masterData.length;
     const vacantLetsPositions = masterData.filter(
       (master) => master.EmployeeFirstName
@@ -411,13 +419,11 @@ export default class SpDescrepency extends React.Component<
       FullTimeEmployeesWithHourlyRate: fullTimeEmployeesWithHourlyRate,
       EmployeesWithDeviationCodePoint5: employeesWithDeviationCodePoint5,
       EmployeesWithBlankAssignTime: employeesWithBlankAssignTime,
-      EmployeeswithBlankEmployeeStatus: employeeswithBlankEmployeeStatus,
+      EmployeeswithBlankEmployeeStatus: employeeswithBlankEmployeeStatus,      
     };
   };
 
-  private displayDiscrepancyReport = (
-    discrepancies: IDiscrepancyResult[]
-  ): void => {
+  private displayDiscrepancyReport = (discrepancies: IDiscrepancyResult[]): void => {
     if (!discrepancies) {
       alert("No discrepancies found. Data matches the master database.");
       return;
@@ -881,10 +887,8 @@ export default class SpDescrepency extends React.Component<
     );
   };
 
-  private saveDiscrepancyReportToSharePoint = async (
-    data: IDiscrepancyResult[]
-  ): Promise<void> => {
-    const { validAgencyData } = this.state; // Get master data from state
+  private saveDiscrepancyReportToSharePoint = async (data: IDiscrepancyResult[]): Promise<void> => {
+    const { validAgencyData, isLateSubmission } = this.state; // Get master data from state
     if (data.length === 0) {
       this.setState({ saveStatus: "No data to save." });
       return;
@@ -911,7 +915,8 @@ export default class SpDescrepency extends React.Component<
           if (existingItems.length > 0) {
             // Update existing record
             const existingItemId = existingItems[0].Id; // Get ID of existing item
-            await discrepancyList.items.getById(existingItemId).update({
+            await discrepancyList.items.getById(existingItemId).update({ 
+              LateSubmission: isLateSubmission,            
               field_4: item.LetsPositions,
               DescLetsPositions: item.DescLetsPositions || "",
               field_5: item.VacantLetsPositions,
@@ -932,20 +937,17 @@ export default class SpDescrepency extends React.Component<
               field_18: item.NumberOfEmployeeInExpiredPositions,
               field_19: item.NumberOfPositionsWithInvalidRSC,
               EmployeeslistedbutNoEESalary: item.EmployeeslistedbutNoEESalary,
-              EmployeeslistedButNoEETimeStatus:
-                item.EmployeeslistedButNoEETimeStatus,
+              EmployeeslistedButNoEETimeStatus: item.EmployeeslistedButNoEETimeStatus,
               PartTimeEmployeesWithSalary: item.PartTimeEmployeesWithSalary,
-              FullTimeEmployeesWithHourlyRate:
-                item.FullTimeEmployeesWithHourlyRate,
-              EmployeesWithDeviationCodePoint5:
-                item.EmployeesWithDeviationCodePoint5,
+              FullTimeEmployeesWithHourlyRate: item.FullTimeEmployeesWithHourlyRate,
+              EmployeesWithDeviationCodePoint5: item.EmployeesWithDeviationCodePoint5,
               EmployeesWithBlankAssignTime: item.EmployeesWithBlankAssignTime,
-              EmployeeswithBlankEmployeeStatus:
-                item.EmployeeswithBlankEmployeeStatus,
+              EmployeeswithBlankEmployeeStatus: item.EmployeeswithBlankEmployeeStatus,
             });
           } else {
             // Insert new record
-            await discrepancyList.items.add({
+            await discrepancyList.items.add({ 
+              LateSubmission: isLateSubmission,             
               field_1: this.state.selectedAgency,
               field_2: currentYear,
               field_3: currentMonth,
@@ -969,16 +971,12 @@ export default class SpDescrepency extends React.Component<
               field_18: item.NumberOfEmployeeInExpiredPositions,
               field_19: item.NumberOfPositionsWithInvalidRSC,
               EmployeeslistedbutNoEESalary: item.EmployeeslistedbutNoEESalary,
-              EmployeeslistedButNoEETimeStatus:
-                item.EmployeeslistedButNoEETimeStatus,
+              EmployeeslistedButNoEETimeStatus: item.EmployeeslistedButNoEETimeStatus,
               PartTimeEmployeesWithSalary: item.PartTimeEmployeesWithSalary,
-              FullTimeEmployeesWithHourlyRate:
-                item.FullTimeEmployeesWithHourlyRate,
-              EmployeesWithDeviationCodePoint5:
-                item.EmployeesWithDeviationCodePoint5,
+              FullTimeEmployeesWithHourlyRate: item.FullTimeEmployeesWithHourlyRate,
+              EmployeesWithDeviationCodePoint5: item.EmployeesWithDeviationCodePoint5,
               EmployeesWithBlankAssignTime: item.EmployeesWithBlankAssignTime,
-              EmployeeswithBlankEmployeeStatus:
-                item.EmployeeswithBlankEmployeeStatus,
+              EmployeeswithBlankEmployeeStatus: item.EmployeeswithBlankEmployeeStatus,
             });
           }
         })
@@ -990,6 +988,7 @@ export default class SpDescrepency extends React.Component<
       }
 
       this.setState({
+        enableSaveButton: false,
         isSaving: false,
         saveStatus: "Discrepancy report saved successfully!",
       });
@@ -1021,7 +1020,7 @@ export default class SpDescrepency extends React.Component<
         .select("*")
         .get();
 
-      if (items.length > 0) {
+      if (items.length > 0) {        
         // Map SharePoint data to IDiscrepancyResult structure
         const descrepencyReport: IDiscrepancyResult[] = items.map((item) => ({
           //DiscrepancyName: item.Title, // Assuming Title holds the discrepancy name
@@ -1036,8 +1035,7 @@ export default class SpDescrepency extends React.Component<
           NumberofLocalPositions: item.field_9,
           NumberOfVacantLocalPositions: item.field_10,
           NumberOfFilledLocalPositions: item.field_11,
-          NumberOfEmployeesInLocalNotFoundInLets:
-            Number(item.NumberOfEmployeesInLocalNotFoundInLets) || 0,
+          NumberOfEmployeesInLocalNotFoundInLets: Number(item.NumberOfEmployeesInLocalNotFoundInLets) || 0,
           NumberOfEmployeeWithSignificantSalary: item.field_12,
           NumberOfLocalPositionsInLETS: item.field_13,
           LetsLocalPositionBlank: item.field_14,
@@ -1046,15 +1044,12 @@ export default class SpDescrepency extends React.Component<
           NumberOfEmployeeInExpiredPositions: item.field_17,
           NumberOfPositionsWithInvalidRSC: item.field_18,
           EmployeeslistedbutNoEESalary: item.EmployeeslistedbutNoEESalary,
-          EmployeeslistedButNoEETimeStatus:
-            item.EmployeeslistedButNoEETimeStatus,
+          EmployeeslistedButNoEETimeStatus: item.EmployeeslistedButNoEETimeStatus,
           PartTimeEmployeesWithSalary: item.PartTimeEmployeesWithSalary,
           FullTimeEmployeesWithHourlyRate: item.FullTimeEmployeesWithHourlyRate,
-          EmployeesWithDeviationCodePoint5:
-            item.EmployeesWithDeviationCodePoint5,
+          EmployeesWithDeviationCodePoint5: item.EmployeesWithDeviationCodePoint5,
           EmployeesWithBlankAssignTime: item.EmployeesWithBlankAssignTime,
-          EmployeeswithBlankEmployeeStatus:
-            item.EmployeeswithBlankEmployeeStatus,
+          EmployeeswithBlankEmployeeStatus: item.EmployeeswithBlankEmployeeStatus,                  
         }));
 
         const transformedDescrepencyReport: IDiscrepancyData[] = [];
@@ -1115,7 +1110,7 @@ export default class SpDescrepency extends React.Component<
           allDiscrepancyData[DiscrepancyName] = filteredData;
         });
         // Update state with fetched data
-        this.setState({
+        this.setState({                          
           descrepencyReport: descrepencyReport,
           allDiscrepancyData: allDiscrepancyData,
         });
@@ -1478,7 +1473,7 @@ export default class SpDescrepency extends React.Component<
   };
 
   private renderDiscrepancyReport = (): JSX.Element => {
-    const { descrepencyReport, isSaving, saveStatus } = this.state;
+    const { descrepencyReport, isSaving, saveStatus, enableSaveButton } = this.state;
 
     if (this.state.descrepencyReport.length === 0) {
       return <p>No discrepancies found.</p>;
@@ -1910,17 +1905,22 @@ export default class SpDescrepency extends React.Component<
               </React.Fragment>
             ))}
           </tbody>
-          {/* Save to SharePoint Button */}
+          {/* Display LateSubmission at the bottom */}
+          {enableSaveButton &&
+            <div style={{ marginTop: "20px", fontWeight: "bold" }}>
+                This Submission {this.state.isLateSubmission ? " is late" : " is on time"}
+            </div>
+          }
+          {/* Save to SharePoint Button */}          
           <button
             className={styles.saveButton}
             onClick={() =>
               this.saveDiscrepancyReportToSharePoint(descrepencyReport)
             }
-            disabled={isSaving} // Disable while saving
+            disabled={isSaving || !enableSaveButton} // Disable while saving
           >
             {isSaving ? "Saving..." : "Submit"}
-          </button>
-
+          </button>          
           {/* Show status message after saving */}
           {saveStatus && <p className={styles.statusMessage}>{saveStatus}</p>}
         </table>

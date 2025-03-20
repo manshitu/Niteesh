@@ -40,6 +40,8 @@ export interface ISpDescrepencyState {
   userLocalityName: string;
   userFIPS: string;
   allDiscrepancyData: Record<string, IExcelRow[]>; // Added allDiscrepancyData property
+  enableSaveButton: boolean;
+  isLateSubmission: boolean;
   adminFormData: {
     fips: string;
     month: string;
@@ -76,6 +78,7 @@ export interface IExcelRow {
   ProbationExpectedEndDate?: string;
   StatePositionNumber?: string;
 }
+
 export interface IDiscrepancyResult {
   LetsPositions: number;
   DescLetsPositions: string;
@@ -102,7 +105,7 @@ export interface IDiscrepancyResult {
   FullTimeEmployeesWithHourlyRate: number;
   EmployeesWithDeviationCodePoint5: number;
   EmployeesWithBlankAssignTime: number;
-  EmployeeswithBlankEmployeeStatus: number;
+  EmployeeswithBlankEmployeeStatus: number;  
 }
 
 export interface IDiscrepancyData {
