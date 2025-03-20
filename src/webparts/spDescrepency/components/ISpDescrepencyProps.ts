@@ -49,7 +49,9 @@ export interface ISpDescrepencyState {
     certifyAccurate: boolean;
     certifyException: boolean;
     adminPrintName: string;
+    adminDate: string;
     directorPrintName: string;
+    directorDate: string;
     adminSignatureCompleted: boolean;
     directorSignatureCompleted: boolean;
     directorComment: string;

@@ -49,7 +49,9 @@ export default class SpDescrepency extends React.Component<
         certifyAccurate: false,
         certifyException: false,
         adminPrintName: "",
+        adminDate: "",
         directorPrintName: "",
+        directorDate: "",
         directorComment: "",
         adminSignatureCompleted: false,
         directorSignatureCompleted: false,
@@ -545,8 +547,10 @@ export default class SpDescrepency extends React.Component<
             certifyAccurate: formData.CertifyAccurate,
             certifyException: formData.CertifyException,
             adminPrintName: formData.AdminPrintName,
+            adminDate: formData.field_7,
             adminSignatureCompleted: formData.field_8,
             directorPrintName: formData.DirectorPrintName,
+            directorDate: formData.field_10,
             directorSignatureCompleted: formData.field_11,
             directorComment: formData.DirectorComment,
           },
@@ -561,7 +565,9 @@ export default class SpDescrepency extends React.Component<
             certifyAccurate: false, // Default unchecked
             certifyException: false, // Default unchecked
             adminPrintName: currentUserName,
+            adminDate: new Date().toISOString(), // Current date
             directorPrintName: currentUserName,
+            directorDate: new Date().toISOString(), // Current date
             directorComment: "", // Default empty
             adminSignatureCompleted: false,
             directorSignatureCompleted: false,
@@ -1281,6 +1287,10 @@ export default class SpDescrepency extends React.Component<
             disabled
           />
         </div>
+        <div className={styles.formGroup}>
+          <label>Admin Date:</label>
+          <label>{adminFormData.adminDate}</label>
+        </div>
         {/* <button disabled={true} className={styles.submitButton}>Submit</button> */}
       </div>
     );
@@ -1331,6 +1341,9 @@ export default class SpDescrepency extends React.Component<
             value={adminFormData.directorPrintName}
             disabled
           />
+          <br />
+          <label>Director Date:</label>
+          <label>{adminFormData.directorDate}</label>
           <br />
           <label>Provide Comment: </label>
           <textarea
