@@ -593,11 +593,9 @@ export default class SpDescrepency extends React.Component<
     );
   };
 
-  private handleDirectorApproval = async (
-    isApproved: boolean
-  ): Promise<void> => {
-    const { adminFormData, selectedAgency } = this.state;
-
+  private handleDirectorApproval = async (isApproved: boolean): Promise<void> => {
+    const { adminFormData, selectedAgency, isLateSubmission } = this.state;
+    
     if (!adminFormData.fips || !adminFormData.certifiedCycle) {
       this.setState({
         saveStatus: "Please fill all fields before proceeding.",
@@ -626,6 +624,7 @@ export default class SpDescrepency extends React.Component<
       if (existingItems.length > 0) {
         const existingItemId = existingItems[0].Id;
         await list.items.getById(existingItemId).update({
+          LateSubmission: isLateSubmission, // Update late submission status
           field_11: isApproved,
           DirectorPrintName: adminFormData.directorPrintName,
           DirectorComment: adminFormData.directorComment,
@@ -640,6 +639,7 @@ export default class SpDescrepency extends React.Component<
         });
       } else {
         await list.items.add({
+          LateSubmission: isLateSubmission, // Late submission status
           field_11: isApproved,
           DirectorPrintName: adminFormData.directorPrintName,
           DirectorComment: adminFormData.directorComment,
@@ -894,7 +894,7 @@ export default class SpDescrepency extends React.Component<
   };
 
   private saveDiscrepancyReportToSharePoint = async (data: IDiscrepancyResult[]): Promise<void> => {
-    const { validAgencyData, isLateSubmission } = this.state; // Get master data from state
+    const { validAgencyData } = this.state; // Get master data from state
     if (data.length === 0) {
       this.setState({ saveStatus: "No data to save." });
       return;
@@ -921,8 +921,7 @@ export default class SpDescrepency extends React.Component<
           if (existingItems.length > 0) {
             // Update existing record
             const existingItemId = existingItems[0].Id; // Get ID of existing item
-            await discrepancyList.items.getById(existingItemId).update({ 
-              LateSubmission: isLateSubmission,            
+            await discrepancyList.items.getById(existingItemId).update({                          
               field_4: item.LetsPositions,
               DescLetsPositions: item.DescLetsPositions || "",
               field_5: item.VacantLetsPositions,
@@ -953,7 +952,6 @@ export default class SpDescrepency extends React.Component<
           } else {
             // Insert new record
             await discrepancyList.items.add({ 
-              LateSubmission: isLateSubmission,             
               field_1: this.state.selectedAgency,
               field_2: currentYear,
               field_3: currentMonth,
@@ -1917,13 +1915,7 @@ export default class SpDescrepency extends React.Component<
                 </tr>
               </React.Fragment>
             ))}
-          </tbody>
-          {/* Display LateSubmission at the bottom */}
-          {enableSaveButton &&
-            <div style={{ marginTop: "20px", fontWeight: "bold" }}>
-                This Submission {this.state.isLateSubmission ? " is late" : " is on time"}
-            </div>
-          }
+          </tbody>          
           {/* Save to SharePoint Button */}          
           <button
             className={styles.saveButton}
