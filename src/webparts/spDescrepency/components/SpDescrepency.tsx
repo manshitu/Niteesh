@@ -663,12 +663,71 @@ export default class SpDescrepency extends React.Component<
   };
 
   private exportDiscrepancyToExcel = (): void => {
-    const { descrepencyReport, allDiscrepancyData } = this.state; // Tab 2 and Tab 3 data
+    const { descrepencyReport } = this.state; // Tab 2 and Tab 3 data
 
     if (descrepencyReport.length === 0) {
       alert("No data to export.");
       return;
     }
+
+  // Loop through the transformed rows
+  const allDiscrepancyData: Record<string, IExcelRow[]> = {};
+  const transformedDescrepencyReport: IDiscrepancyData[] = [];
+  // Extract the first object since descrepencyReport is an array with a single object
+  const firstRow = descrepencyReport[0];
+  // Convert the object properties into an array of rows
+  Object.keys(firstRow).forEach((key) => {
+    if (key !== "DiscrepancyName") {
+      // Avoid the null DiscrepancyName field
+      transformedDescrepencyReport.push({
+        DiscrepancyName: key, // Column name becomes row entry
+        Count: Number(firstRow[key as keyof IDiscrepancyResult]) || 0, // Assign value and ensure it's a number
+      });
+    }
+  });
+
+  transformedDescrepencyReport.forEach(({ DiscrepancyName, Count }) => {
+    let filteredData: IExcelRow[] = [];
+
+    switch (DiscrepancyName) {
+      case "LetsPositions":
+        filteredData = this.state.masterData;
+        break;
+      case "VacantLetsPositions":
+        filteredData = this.state.masterData.filter(
+          (row) => row.EmployeeFirstName
+        );
+        break;
+      case "FilledLetsPositions":
+        filteredData = this.state.masterData.filter(
+          (row) => !row.EmployeeFirstName
+        );
+        break;
+      case "EmployeeLetsNotFoundLocal":
+      case "VacantPositionsLets":
+        filteredData = this.state.masterData;
+        break;
+      case "NumberofLocalPositions":
+        filteredData = this.state.validAgencyData;
+        break;
+      case "NumberOfVacantLocalPositions":
+        filteredData = this.state.validAgencyData.filter(
+          (agency) => agency.EmployeeFirstName
+        );
+        break;
+      case "NumberOfFilledLocalPositions":
+        filteredData = this.state.validAgencyData.filter(
+          (agency) => !agency.EmployeeFirstName
+        );
+        break;
+      default:
+        filteredData = [];
+    }
+
+    //  Store the processed data
+    allDiscrepancyData[DiscrepancyName] = filteredData;
+  });
+
 
     //  Define headers as per the required format
     const headers: [string, string, string] = [
@@ -716,11 +775,12 @@ export default class SpDescrepency extends React.Component<
     }
 
     //  Step 2: Add each discrepancy's detailed data in separate sheets
-    Object.keys(allDiscrepancyData).forEach((discrepancyName) => {
+    Object.keys(allDiscrepancyData).filter(key => !key.startsWith("Desc")).forEach((discrepancyName, index) => {
       const data = allDiscrepancyData[discrepancyName];
       if (data.length > 0) {
         const detailsSheet = XLSX.utils.json_to_sheet(data);
-        XLSX.utils.book_append_sheet(wb, detailsSheet, discrepancyName);
+        const safeName = `${index + 2}-${discrepancyName}`.replace(/[\\[\]:*?/]/g, '').substring(0, 31);
+        XLSX.utils.book_append_sheet(wb, detailsSheet, safeName);
       }
     });
 
@@ -1056,68 +1116,16 @@ export default class SpDescrepency extends React.Component<
           EmployeeswithBlankEmployeeStatus: item.EmployeeswithBlankEmployeeStatus,                  
         }));
 
-        const transformedDescrepencyReport: IDiscrepancyData[] = [];
-        // Extract the first object since descrepencyReport is an array with a single object
-        const firstRow = descrepencyReport[0];
-        // Convert the object properties into an array of rows
-        Object.keys(firstRow).forEach((key) => {
-          if (key !== "DiscrepancyName") {
-            // Avoid the null DiscrepancyName field
-            transformedDescrepencyReport.push({
-              DiscrepancyName: key, // Column name becomes row entry
-              Count: Number(firstRow[key as keyof IDiscrepancyResult]) || 0, // Assign value and ensure it's a number
-            });
-          }
-        });
-
-        // Loop through the transformed rows
-        const allDiscrepancyData: Record<string, IExcelRow[]> = {};
-        transformedDescrepencyReport.forEach(({ DiscrepancyName, Count }) => {
-          let filteredData: IExcelRow[] = [];
-
-          switch (DiscrepancyName) {
-            case "LetsPositions":
-              filteredData = this.state.masterData;
-              break;
-            case "VacantLetsPositions":
-              filteredData = this.state.masterData.filter(
-                (row) => row.EmployeeFirstName
-              );
-              break;
-            case "FilledLetsPositions":
-              filteredData = this.state.masterData.filter(
-                (row) => !row.EmployeeFirstName
-              );
-              break;
-            case "EmployeeLetsNotFoundLocal":
-            case "VacantPositionsLets":
-              filteredData = this.state.masterData;
-              break;
-            case "NumberofLocalPositions":
-              filteredData = this.state.validAgencyData;
-              break;
-            case "NumberOfVacantLocalPositions":
-              filteredData = this.state.validAgencyData.filter(
-                (agency) => agency.EmployeeFirstName
-              );
-              break;
-            case "NumberOfFilledLocalPositions":
-              filteredData = this.state.validAgencyData.filter(
-                (agency) => !agency.EmployeeFirstName
-              );
-              break;
-            default:
-              filteredData = [];
-          }
-
-          //  Store the processed data
-          allDiscrepancyData[DiscrepancyName] = filteredData;
-        });
         // Update state with fetched data
         this.setState({                          
+          descrepencyReport: descrepencyReport
+        });
+      }
+      else{
+        /*this.setState({                       
           descrepencyReport: descrepencyReport,
           allDiscrepancyData: allDiscrepancyData,
-        });
+        });*/
       }
     } catch (error) {
       console.error("Error fetching discrepancy report from SharePoint:", error);
