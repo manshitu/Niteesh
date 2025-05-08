@@ -176,6 +176,48 @@ export default class SpDescrepency extends React.Component<
     }
   };
 
+  private getCustomMonthYear(date: Date = new Date(), zeroPad: boolean = true): { customMonth: string; customYear: string } {
+    const currentMonth = date.getMonth() + 1; // 1 to 12
+    const currentDay = date.getDate();
+    const year = date.getFullYear();
+  
+    const ranges = [
+      { month: 4, from: [4, 25], to: [5, 24] },
+      { month: 5, from: [5, 25], to: [6, 24] },
+      { month: 6, from: [6, 25], to: [7, 24] },
+      { month: 7, from: [7, 25], to: [8, 24] },
+      { month: 8, from: [8, 25], to: [9, 24] },
+      { month: 9, from: [9, 25], to: [10, 24] },
+      { month: 10, from: [10, 25], to: [11, 24] },
+      { month: 11, from: [11, 25], to: [12, 24] },
+      { month: 12, from: [12, 25], to: [1, 24], adjustYear: -1 },
+      { month: 1, from: [1, 25], to: [2, 24] },
+      { month: 2, from: [2, 25], to: [3, 24] },
+      { month: 3, from: [3, 25], to: [4, 24] },
+    ];
+  
+    for (const range of ranges) {
+      const [fromMonth, fromDay] = range.from;
+      const [toMonth, toDay] = range.to;
+      const adjustYear = range.adjustYear ?? 0;
+  
+      if (
+        (currentMonth === fromMonth && currentDay >= fromDay) ||
+        (currentMonth === toMonth && currentDay <= toDay)
+      ) {
+        const customMonth = zeroPad ? String(range.month).padStart(2, "0") : String(range.month);
+        return {
+          customMonth,
+          customYear: String(year + adjustYear),
+        };
+      }
+    }
+  
+    // Fallback (should not happen)
+    const fallbackMonth = zeroPad ? String(currentMonth).padStart(2, "0") : String(currentMonth);
+    return { customMonth: fallbackMonth, customYear: String(year) };
+  }
+  
   private async fetchAgencyOptions(): Promise<void> {
     const listName = "LDSSProfileSummary";
     try {
@@ -524,14 +566,15 @@ export default class SpDescrepency extends React.Component<
       const currentUserName = currentUser.Title;
 
       // Get current month and year
-      const currentDate = new Date();
-      const currentMonth = String(currentDate.getMonth() + 1).padStart(2, "0"); // "01" to "12"
-      const currentYear = String(currentDate.getFullYear());
+      //const currentDate = new Date();
+      //const currentMonth = String(currentDate.getMonth() + 1).padStart(2, "0"); // "01" to "12"
+      //const currentYear = String(currentDate.getFullYear());
+      const { customMonth, customYear } = this.getCustomMonthYear();
       // Query SharePoint to get admin form data for the current month and agency
       const items = await sp.web.lists
         .getByTitle(listName)
         .items.filter(
-          `field_1 eq '${this.state.selectedAgency}' and field_2 eq '${currentMonth}' and field_3 eq '${currentYear}'`
+          `field_1 eq '${this.state.selectedAgency}' and field_2 eq '${customMonth}' and field_3 eq '${customYear}'`
         )
         .select("*")
         .get();
@@ -560,8 +603,8 @@ export default class SpDescrepency extends React.Component<
         this.setState({
           adminFormData: {
             fips: this.state.userFIPS, // Default FIPS code
-            month: currentMonth,
-            certifiedCycle: currentMonth + "/" + currentYear,
+            month: customMonth,
+            certifiedCycle: customMonth + "/" + customYear,
             certifyAccurate: false, // Default unchecked
             certifyException: false, // Default unchecked
             adminPrintName: currentUserName,
@@ -661,12 +704,12 @@ export default class SpDescrepency extends React.Component<
       });
     }
   };
-
+  
   private exportDiscrepancyToExcel = (): void => {
     const { descrepencyReport } = this.state; // Tab 2 and Tab 3 data
-
+    
     if (descrepencyReport.length === 0) {
-      alert("No data to export.");
+      alert("No data to export.");      
       return;
     }
 
